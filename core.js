@@ -199,6 +199,9 @@
   var BODY = 'Please see the below patients requiring confirmation within the next 2 business days, including any outstanding for today if applicable.';
   var CHECKLIST = 'Please standardly verify email address, date/time and appointment medium (in-person/tele), reminder to account for annual consent forms during check-in, directions to clinic, clinic extension, help email, enroll in portal, etc.';
 
+  var SIGNATURE_HTML = "<p style=\"margin:16px 0 0\">Best,</p><p style=\"margin:8px 0 0;line-height:1.35\"><b>Brendan Yates</b> (he/him)<br>Senior Practice Manager<br>SF Castro | San Rafael<br>P: (844) 867- 8444 opt. 2 | F: (415) 964-5419<br><a href=\"https://www.mindfulhealthsolutions.com\">www.mindfulhealthsolutions.com</a></p><p style=\"margin:16px 0 0;font-size:11px;color:#666\">This email communication and any attachments may contain confidential information for the use of the designated recipients named above. Distribution, reproduction or any other use of this transmission by any party other than the intended recipient is prohibited and may be subject to protection under the law, including the Health Insurance Portability and Accountability Act (HIPAA). If you receive this e-mail in error, please notify the sender immediately by reply e-mail and permanently delete this e-mail and any attachments.</p>";
+  var SIGNATURE_TEXT = "Best,\n\nBrendan Yates (he/him)\nSenior Practice Manager\nSF Castro | San Rafael\nP: (844) 867- 8444 opt. 2 | F: (415) 964-5419\nwww.mindfulhealthsolutions.com\n\nThis email communication and any attachments may contain confidential information for the use of the designated recipients named above. Distribution, reproduction or any other use of this transmission by any party other than the intended recipient is prohibited and may be subject to protection under the law, including the Health Insurance Portability and Accountability Act (HIPAA). If you receive this e-mail in error, please notify the sender immediately by reply e-mail and permanently delete this e-mail and any attachments.";
+
   function buildEmail(clinicName, items, res, opts) {
     opts = opts || {};
     var cols = [
@@ -227,12 +230,12 @@
 
     var html = '<div style="font-family:Calibri,Arial,sans-serif;font-size:14px">' +
       '<p>' + esc(INTRO) + '</p><p>' + esc(BODY) + '</p><p>' + esc(CHECKLIST) + '</p>' +
-      '<table style="border-collapse:collapse">' + head + body + '</table></div>';
+      '<table style="border-collapse:collapse">' + head + body + '</table>' + SIGNATURE_HTML + '</div>';
 
     var text = [INTRO, '', BODY, '', CHECKLIST, ''].concat(items.map(function (i) {
       var link = rowLink(opts.baseUrl, i.row);
       return cols.map(function (c) { return c[1](i); }).join(' | ') + (link ? ' | View: ' + link : '');
-    })).join('\n');
+    })).concat(['', SIGNATURE_TEXT]).join('\n');
 
     var range = res ? fmtDate(res.start) + (res.end !== res.start ? '-' + fmtDate(res.end) : '') : '';
     return { to: emailForClinic(clinicName), subject: 'Appointment confirmations needed: ' + clinicName + (range ? ' (' + range + ')' : ''), html: html, text: text, count: items.length };

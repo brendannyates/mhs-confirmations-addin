@@ -55,7 +55,7 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
     if (!sws) {
       // No add-in needed: the script can create the sheet. Everything on it can be filled in by hand.
       sws = workbook.addWorksheet(SETTINGS_SHEET);
-      const data: string[][] = [['ClinicName', 'ClinicEmail', 'Opt In (Yes/No)']].concat(CLINICS.map(function (c) { return [c[0], c[1], 'No']; }));
+      const data: string[][] = [['ClinicName', 'ClinicEmail', 'Opt In (Yes/No)']].concat(CLINICS.map((c) => [c[0], c[1], 'No']));
       sws.getRange('A1:C' + data.length).setValues(data);
       sws.getRange('E1').setValue('Holidays (YYYY-MM-DD, optional)');
       sws.getRange('G1').setValue('Workbook link for View (paste in G2 if not using the add-in)');
@@ -106,11 +106,11 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
 
     // ---- window + stale check ----
     const end = addBusinessDays(today, 2, holidays);
-    const dates: (number | null)[] = rows.map(function (r) { return toSerial(r[4]); });
+    const dates: (number | null)[] = rows.map((r) => toSerial(r[4]));
     let maxDate = 0;
     const badDateRows: number[] = [];
     for (let i = 0; i < rows.length; i++) {
-      const blank = rows[i].every(function (c) { return c === '' || c == null; });
+      const blank = rows[i].every((c) => c === '' || c == null);
       if (blank) continue;
       const d = dates[i];
       if (d === null) badDateRows.push(firstRow + i);
@@ -133,7 +133,7 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
       const r = rows[idx];
       const d = dates[idx];
       if (d === null || d < today || d > end) continue;
-      const status = [r[10], r[11], r[12], r[13]].map(function (x) { return x == null ? '' : String(x); }).join(' | ');
+      const status = [r[10], r[11], r[12], r[13]].map((x) => x == null ? '' : String(x)).join(' | ');
       if (hasConfirmed(status) || /resched/i.test(status) || /cancel/i.test(status)) continue;
       const clinic = clinicFor(String(r[2] || ''));
       if (!clinic) { const key = String(r[2] || '(blank)'); (unmapped[key] = unmapped[key] || []).push(firstRow + idx); continue; }
@@ -156,7 +156,7 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
     for (const c of CLINICS) {
       const items = byClinic[c[0]];
       if (!items || !items.length || !optIn[c[0]]) continue;
-      items.sort(function (a, b) { return a.dateSerial - b.dateSerial || (a.timeFrac || 0) - (b.timeFrac || 0) || a.row - b.row; });
+      items.sort((a, b) => a.dateSerial - b.dateSerial || (a.timeFrac || 0) - (b.timeFrac || 0) || a.row - b.row);
       out.emails.push(buildEmail(c[0], c[1], items, today, end, baseUrl));
     }
     out.message = out.emails.length + ' email(s) ready for ' + fmtDate(today) + ' to ' + fmtDate(end) + '.';
@@ -174,7 +174,7 @@ function fail(out: Out, msg: string): string {
 function finish(out: Out): string {
   if (out.status !== 'ok') out.emails = []; // never send clinic emails on a stale or error run
   out.ownerHtml = '<div style="font-family:Calibri,Arial,sans-serif;font-size:14px"><p><b>Confirmations Run: ' + esc(out.status) + '</b></p><p>' + esc(out.message) + '</p>' +
-    (out.warnings.length ? '<p>Warnings:</p><ul>' + out.warnings.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>' : '') + '</div>';
+    (out.warnings.length ? '<p>Warnings:</p><ul>' + out.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul>' : '') + '</div>';
   return JSON.stringify(out);
 }
 
@@ -257,24 +257,24 @@ function esc(s: Cell | null): string { return String(s == null ? '' : s).replace
 
 function buildEmail(clinic: string, to: string, items: Item[], start: number, end: number, baseUrl: string) {
   const cols: [string, (i: Item) => Cell][] = [
-    ['Md Rc', function (i) { return i.mdrc; }],
-    ['Pat Name', function (i) { return i.lasfir || (i.nameIssue === 'blank' ? '(missing)' : '(check name)'); }],
-    ['Event', function (i) { return i.event; }],
-    ['Appt Dt', function (i) { return fmtDate(i.dateSerial); }],
-    ['Beg Tm', function (i) { return fmtTime(i.timeFrac); }],
-    ['Rendering', function (i) { return i.rendering; }],
-    ['Create Date', function (i) { return fmtDate(i.created); }],
-    ['96h Contact Outcome (Patient Access Team)', function (i) { return i.k; }],
-    ['Pre-Reg Setup Call (Patient Access Team)', function (i) { return i.l; }],
-    ['Status of 48 hour Outreach (Patient Access Team)', function (i) { return i.m; }],
-    ['Confirmation Call 48 Hours (Ops)', function (i) { return i.n; }]
+    ['Md Rc', (i) => i.mdrc],
+    ['Pat Name', (i) => i.lasfir || (i.nameIssue === 'blank' ? '(missing)' : '(check name)')],
+    ['Event', (i) => i.event],
+    ['Appt Dt', (i) => fmtDate(i.dateSerial)],
+    ['Beg Tm', (i) => fmtTime(i.timeFrac)],
+    ['Rendering', (i) => i.rendering],
+    ['Create Date', (i) => fmtDate(i.created)],
+    ['96h Contact Outcome (Patient Access Team)', (i) => i.k],
+    ['Pre-Reg Setup Call (Patient Access Team)', (i) => i.l],
+    ['Status of 48 hour Outreach (Patient Access Team)', (i) => i.m],
+    ['Confirmation Call 48 Hours (Ops)', (i) => i.n]
   ];
   const th = 'style="background:#1f4e79;color:#fff;text-align:left;padding:6px 8px;border:1px solid #ccc;font-size:12px"';
   const td = 'style="padding:6px 8px;border:1px solid #ccc;font-size:12px;vertical-align:top"';
-  const head = '<tr>' + cols.map(function (c) { return '<th ' + th + '>' + esc(c[0]) + '</th>'; }).join('') + '<th ' + th + '>Link</th></tr>';
-  const body = items.map(function (i) {
+  const head = '<tr>' + cols.map((c) => '<th ' + th + '>' + esc(c[0]) + '</th>').join('') + '<th ' + th + '>Link</th></tr>';
+  const body = items.map((i) => {
     const link = baseUrl ? baseUrl + (baseUrl.indexOf('?') < 0 ? '?' : '&') + 'activeCell=' + encodeURIComponent('List!A' + i.row) : '';
-    return '<tr>' + cols.map(function (c) { return '<td ' + td + '>' + esc(c[1](i)) + '</td>'; }).join('') +
+    return '<tr>' + cols.map((c) => '<td ' + td + '>' + esc(c[1](i)) + '</td>').join('') +
       '<td ' + td + '>' + (link ? '<a href="' + esc(link) + '">View</a>' : '') + '</td></tr>';
   }).join('');
   const html = '<div style="font-family:Calibri,Arial,sans-serif;font-size:14px">' +

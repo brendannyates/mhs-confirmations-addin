@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confirmations</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Confirmations needed</h1>
+  <div id="window" class="muted">Loading…</div>
+</header>
+
+<section class="opts">
+  <label><input type="checkbox" id="optToday" checked> Include today</label>
+  <label><input type="checkbox" id="optCancelled" checked> Skip cancelled</label>
+  <label><input type="checkbox" id="optNotes"> Include Clinic Notes in email</label>
+  <label class="url">Workbook link for "View"
+    <input type="text" id="baseUrl" placeholder="https://…sharepoint.com/…/file.xlsx?web=1">
+  </label>
+  <div class="stamp">
+    <span id="stampInfo" class="muted"></span>
+    <button id="stampReport">Mark report pulled now</button>
+  </div>
+  <button id="refresh">Refresh</button>
+</section>
+
+<div id="warnings"></div>
+<main id="clinics"></main>
+
+<div id="preview" hidden>
+  <div class="bar">
+    <strong id="pvTitle"></strong>
+    <span>
+      <button id="pvCopy">Copy email</button>
+      <button id="pvClose" class="ghost">Close</button>
+    </span>
+  </div>
+  <div class="muted" id="pvMeta"></div>
+  <div id="pvBody"></div>
+</div>
+
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

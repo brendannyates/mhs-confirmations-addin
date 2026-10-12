@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+  xsi:type="TaskPaneApp">
+  <Id>6b8dc89c-cdd6-4a9f-af90-2312d5377948</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Mindful Health Solutions</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="MHS Confirmations"/>
+  <Description DefaultValue="Shows appointments needing confirmation in the next 2 business days, by clinic, and builds the reminder email."/>
+  <IconUrl DefaultValue="https://brendannyates.github.io/mhs-confirmations-addin/assets/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://brendannyates.github.io/mhs-confirmations-addin/assets/icon-80.png"/>
+  <SupportUrl DefaultValue="https://brendannyates.github.io/mhs-confirmations-addin/"/>
+  <AppDomains><AppDomain>https://brendannyates.github.io</AppDomain></AppDomains>
+  <Hosts><Host Name="Workbook"/></Hosts>
+  <DefaultSettings><SourceLocation DefaultValue="https://brendannyates.github.io/mhs-confirmations-addin/index.html"/></DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Workbook">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="Title"/><Description resid="Desc"/><LearnMoreUrl resid="Url"/>
+          </GetStarted>
+          <FunctionFile resid="Url"/>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="ConfGroup">
+                <Label resid="Title"/>
+                <Icon><bt:Image size="16" resid="I16"/><bt:Image size="32" resid="I32"/><bt:Image size="80" resid="I80"/></Icon>
+                <Control xsi:type="Button" id="ConfButton">
+                  <Label resid="Title"/>
+                  <Supertip><Title resid="Title"/><Description resid="Desc"/></Supertip>
+                  <Icon><bt:Image size="16" resid="I16"/><bt:Image size="32" resid="I32"/><bt:Image size="80" resid="I80"/></Icon>
+                  <Action xsi:type="ShowTaskpane"><TaskpaneId>ConfPane</TaskpaneId><SourceLocation resid="Url"/></Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="I16" DefaultValue="https://brendannyates.github.io/mhs-confirmations-addin/assets/icon-16.png"/>
+        <bt:Image id="I32" DefaultValue="https://brendannyates.github.io/mhs-confirmations-addin/assets/icon-32.png"/>
+        <bt:Image id="I80" DefaultValue="https://brendannyates.github.io/mhs-confirmations-addin/assets/icon-80.png"/>
+      </bt:Images>
+      <bt:Urls><bt:Url id="Url" DefaultValue="https://brendannyates.github.io/mhs-confirmations-addin/index.html"/></bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="Title" DefaultValue="Confirmations"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="Desc" DefaultValue="Appointments needing confirmation in the next 2 business days, by clinic."/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

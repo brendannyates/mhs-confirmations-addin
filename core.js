@@ -219,8 +219,8 @@
     ];
     if (opts.includeNotes) cols.push(['Clinic Notes', function (i) { return i.notes; }]);
 
-    var th = 'style="background:#1f4e79;color:#fff;text-align:left;padding:6px 8px;border:1px solid #ccc;font-size:12px"';
-    var td = 'style="padding:6px 8px;border:1px solid #ccc;font-size:12px;vertical-align:top"';
+    var th = 'style="background:#1f4e79;color:#fff;text-align:left;padding:6px 8px;font-family:Aptos Display,Aptos,Calibri,Arial,sans-serif;border:1px solid #ccc;font-size:12px"';
+    var td = 'style="padding:6px 8px;font-family:Aptos Display,Aptos,Calibri,Arial,sans-serif;border:1px solid #ccc;font-size:12px;vertical-align:top"';
     var head = '<tr>' + cols.map(function (c) { return '<th ' + th + '>' + esc(c[0]) + '</th>'; }).join('') + '<th ' + th + '>Link</th></tr>';
     var body = items.map(function (i) {
       var link = rowLink(opts.baseUrl, i.row);
@@ -228,7 +228,7 @@
         '<td ' + td + '>' + (link ? '<a href="' + esc(link) + '">View</a>' : '') + '</td></tr>';
     }).join('');
 
-    var html = '<div style="font-family:Calibri,Arial,sans-serif;font-size:14px">' +
+    var html = '<div style="font-family:Aptos Display,Aptos,Calibri,Arial,sans-serif;font-size:14px">' +
       '<p>' + esc(INTRO) + '</p><p>' + esc(BODY) + '</p><p>' + esc(CHECKLIST) + '</p>' +
       '<table style="border-collapse:collapse">' + head + body + '</table>' + SIGNATURE_HTML + '</div>';
 

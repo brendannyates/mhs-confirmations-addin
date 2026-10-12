@@ -175,7 +175,7 @@ function fail(out: Out, msg: string): string {
 
 function finish(out: Out): string {
   if (out.status !== 'ok') out.emails = []; // never send clinic emails on a stale or error run
-  out.ownerHtml = '<div style="font-family:Calibri,Arial,sans-serif;font-size:14px"><p><b>Confirmations Run: ' + esc(out.status) + '</b></p><p>' + esc(out.message) + '</p>' +
+  out.ownerHtml = '<div style="font-family:Aptos Display,Aptos,Calibri,Arial,sans-serif;font-size:14px"><p><b>Confirmations Run: ' + esc(out.status) + '</b></p><p>' + esc(out.message) + '</p>' +
     (out.warnings.length ? '<p>Warnings:</p><ul>' + out.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul>' : '') + '</div>';
   return JSON.stringify(out);
 }
@@ -271,15 +271,15 @@ function buildEmail(clinic: string, to: string, items: Item[], start: number, en
     ['Status of 48 hour Outreach (Patient Access Team)', (i) => i.m],
     ['Confirmation Call 48 Hours (Ops)', (i) => i.n]
   ];
-  const th = 'style="background:#1f4e79;color:#fff;text-align:left;padding:6px 8px;border:1px solid #ccc;font-size:12px"';
-  const td = 'style="padding:6px 8px;border:1px solid #ccc;font-size:12px;vertical-align:top"';
+  const th = 'style="background:#1f4e79;color:#fff;text-align:left;padding:6px 8px;font-family:Aptos Display,Aptos,Calibri,Arial,sans-serif;border:1px solid #ccc;font-size:12px"';
+  const td = 'style="padding:6px 8px;font-family:Aptos Display,Aptos,Calibri,Arial,sans-serif;border:1px solid #ccc;font-size:12px;vertical-align:top"';
   const head = '<tr>' + cols.map((c) => '<th ' + th + '>' + esc(c[0]) + '</th>').join('') + '<th ' + th + '>Link</th></tr>';
   const body = items.map((i) => {
     const link = baseUrl ? baseUrl + (baseUrl.indexOf('?') < 0 ? '?' : '&') + 'activeCell=' + encodeURIComponent('List!A' + i.row) : '';
     return '<tr>' + cols.map((c) => '<td ' + td + '>' + esc(c[1](i)) + '</td>').join('') +
       '<td ' + td + '>' + (link ? '<a href="' + esc(link) + '">View</a>' : '') + '</td></tr>';
   }).join('');
-  const html = '<div style="font-family:Calibri,Arial,sans-serif;font-size:14px">' +
+  const html = '<div style="font-family:Aptos Display,Aptos,Calibri,Arial,sans-serif;font-size:14px">' +
     '<p>Hello!</p><p>Please see the below patients requiring confirmation within the next 2 business days, including any outstanding for today if applicable.</p>' +
     '<p>Please standardly verify email address, date/time and appointment medium (in-person/tele), reminder to account for annual consent forms during check-in, directions to clinic, clinic extension, help email, enroll in portal, etc.</p>' +
     '<table style="border-collapse:collapse">' + head + body + '</table>' + SIGNATURE_HTML + '</div>';

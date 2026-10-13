@@ -31,13 +31,12 @@ This repo holds code only. It contains no patient data and no link to the workbo
 3. Click **Confirmations** on the Home ribbon. The pane opens on the right.
 
 ### Step 3: First run of the pane
-1. On first open the pane creates a `Confirm Settings` sheet: clinics and emails in A:C (Opt In all "No"), holidays in E, workbook link in G, report date in I.
+1. On first open the pane creates a `Confirm Settings` sheet: clinics and emails in A:C (Opt In all "No"), holidays in E, workbook link in G.
 2. Check the top line: a date window (today to two business days out) and counts.
 3. Read every yellow warning. They flag unmapped locations, unreadable dates, bad names, a missing workbook link and an out-of-date report.
 4. Open one clinic card and click **Preview email**. Check that Md Rc is the first column, plus the To address and the subject.
 5. The "Workbook link" box usually fills itself. If it's blank, paste the workbook's link (Share > Copy link). The pane saves it to `Confirm Settings!G2`.
-6. Click **Mark report pulled now**. `Confirm Settings!I2` should show today's date and time.
-7. Click a "View" link from a previewed email in a browser to confirm it opens the workbook. It may not jump to the exact row in Excel on the web.
+6. Click a "View" link from a previewed email in a browser to confirm it opens the workbook. It may not jump to the exact row in Excel on the web.
 
 ### Step 4: Settings
 1. On `Confirm Settings`, Practice Leaders change column C to **Yes** for each clinic that should get emails. Nothing sends while a clinic is "No".
@@ -77,9 +76,8 @@ If you renamed the Parse JSON step, use its name in `body('...')` with spaces re
 
 ### Step 7: Test before going live
 1. In the clinic send step (inside Apply to each), temporarily set To to **your own address**. Set one or two clinics to **Yes**.
-2. Paste a fresh report into `List`, then click **Mark report pulled now** in the pane.
+2. Make sure `List` has current data (the data analyst maintains it).
 3. In the flow, click **Test > Manually > Run flow**. Check the email: Md Rc, LASFIR codes, dates, times, and the View link.
-4. **Freshness test:** set `Confirm Settings!I2` to yesterday and run again. You should get a "nothing sent" email and no clinic emails. Click Mark report pulled now to reset it.
 5. **Coverage test:** paste a report that ends before the window's last day and run. You should get a "nothing sent" email.
 6. **Warnings test:** add a row inside the window with a made-up Loc Name and run. You should get a warnings email naming it. Delete the row.
 7. Set To back to the `to` value, save, and make sure the flow is turned on. Confirm the next 8:00 run arrives.
@@ -87,18 +85,15 @@ If you renamed the Parse JSON step, use its name in `body('...')` with spaces re
 ---
 
 ## Daily routine
-1. Paste the fresh report into `List`.
-2. Click **Mark report pulled now** in the pane, or type today's date in `Confirm Settings!I2`.
-
-Do this before 8:00, and again before 16:00 if the afternoon emails should reflect the latest statuses. If `I2` isn't today, the run sends nothing to clinics and emails you instead.
+Nothing to do. The data analyst maintains `List`, and each run (8:00 and 16:00) uses whatever is in `List` at that moment. To add or remove a clinic, change column C on `Confirm Settings`.
 
 ## Rules
 - Window: today through WORKDAY(today, 2), skipping weekends and the holidays in column E.
 - A row is skipped if K:N contain "confirmed"/"conf" or "rescheduled" (but not "unconfirmed"/"not confirmed"), or "cancel".
 - Dates and times may be real Excel values or text (`10/14/2026`, `2026-10-14`, `9:30 AM`). Rows with unreadable dates are reported as warnings.
 - LASFIR: first 3 letters of the last name + first 3 of the first name; anything in parentheses is ignored.
-- `Loc Name` maps to clinic emails in `core.js` and in the script (keep the two in sync); "Castro Street" maps to Castro - CA. Unmapped locations are reported, never silently dropped.
-- The run refuses to send if `I2` isn't today, if the List doesn't reach the window's end, or if the List headers have moved.
+- Clinics and their emails come from `Confirm Settings` columns A and B. A List `Loc Name` matches a clinic when it starts with the clinic name minus its " - XX" state (whole word): "Castro - CA" matches "Castro Street", "Oakland - CA" matches "Oakland IV Ketamine Clinic". The longest match wins. Unmatched locations are reported in the warnings email, never silently dropped.
+- The run refuses to send only if the List headers have moved. If List doesn't reach the window's end, it still sends and adds a warning.
 - The 16:00 run re-sends anything still unconfirmed from 8:00. Run times are Pacific, so TX clinics get emails at 10:00 and 18:00 Central.
 
 ## Security

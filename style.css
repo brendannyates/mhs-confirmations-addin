@@ -18,5 +18,3 @@ td.ev{color:#555}
 #preview{margin-top:14px;border-top:2px solid #1f4e79;padding-top:8px}
 #preview .bar{display:flex;justify-content:space-between;align-items:center}
 #pvBody{overflow-x:auto;margin-top:8px}
-.stamp{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px}
-.stamp button{margin-top:0}

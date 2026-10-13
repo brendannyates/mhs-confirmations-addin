@@ -4,8 +4,6 @@
   'use strict';
   var C = window.MHSCore;
   var LIST_SHEET = 'List', SETTINGS_SHEET = 'Confirm Settings';
-  // REPORT_HEADER mirrors the same constant in office-scripts/ConfirmationsRun.ts.
-  var REPORT_HEADER = 'Report pulled (date/time). Must be today or the scheduled run sends nothing.';
   var state = { res: null, optIn: {}, holidays: [], opts: {} };
   var $ = function (id) { return document.getElementById(id); };
 
@@ -28,7 +26,6 @@
       render();
     });
     $('refresh').addEventListener('click', load);
-    $('stampReport').addEventListener('click', stampReport);
     $('pvClose').addEventListener('click', function () { $('preview').hidden = true; });
     $('pvCopy').addEventListener('click', copyEmail);
     load();
@@ -39,7 +36,7 @@
     return /[?&]web=1/.test(u) ? u : u + (u.indexOf('?') < 0 ? '?' : '&') + 'web=1';
   }
 
-  // ---------- settings sheet (the "Confirmations Run" Office Script reads opt-ins, holidays, G2 link and I2 stamp from it) ----------
+  // ---------- settings sheet (the "Confirmations Run" Office Script reads clinic names/emails, opt-ins, holidays and the G2 link from it) ----------
   // Mirror of the sheet-creation block in office-scripts/ConfirmationsRun.ts. Keep the two in sync.
   function createSettings(sheets) { // queues only; caller syncs
     var s = sheets.add(SETTINGS_SHEET);
@@ -48,27 +45,27 @@
     s.getRange('E1').values = [['Holidays (YYYY-MM-DD, optional)']];
     s.getRange('G1').values = [['Workbook link for View (paste in G2 if not using the add-in)']];
     s.getRange('C2:C' + data.length).dataValidation.rule = { list: { inCellDropDown: true, source: 'Yes,No' } };
-    addReportHeader(s);
+    s.getRange('A1:G1').format.font.bold = true;
+    s.getRange('A:G').format.autofitColumns();
     return s;
-  }
-
-  function addReportHeader(s) { // queues only; caller syncs
-    s.getRange('I1').values = [[REPORT_HEADER]];
-    s.getRange('A1:I1').format.font.bold = true;
-    s.getRange('A:I').format.autofitColumns();
   }
 
   // values: Confirm Settings used range, assumed to start at A1 (A1 always holds "ClinicName").
   function readSettings(values, ws) {
-    var optIn = {}, holidays = [];
+    var optIn = {}, holidays = [], clinics = [];
     values.slice(1).forEach(function (row) {
-      if (row[0]) optIn[String(row[0]).trim()] = /^y/i.test(String(row[2] || ''));
+      var cname = String(row[0] || '').trim();
+      if (cname) {
+        optIn[cname] = /^y/i.test(String(row[2] || ''));
+        var email = String(row[1] || '').trim() || C.emailForClinic(cname);
+        if (email) clinics.push({ name: cname, email: email });
+      }
       var h = row[4];
       if (h !== '' && h != null) { var s = typeof h === 'number' ? h : C.serialOfDate(new Date(String(h) + 'T00:00:00')); if (!isNaN(s)) holidays.push(s); }
     });
     state.optIn = optIn; state.holidays = holidays;
+    if (clinics.length) C.setClinics(clinics); // Confirm Settings A:B drive matching and emails (mirrors the script)
     state.sheetUrl = values.length > 1 && values[1][6] ? String(values[1][6]).trim() : '';
-    state.reportStamp = values.length > 1 ? values[1][8] : '';
     state.settingsWs = ws;
   }
 
@@ -100,20 +97,6 @@
     }).catch(function () { /* user can paste the link into Confirm Settings!G2 by hand */ });
   }
 
-  // ---------- report freshness stamp (Confirm Settings!I2) ----------
-  function stampReport() {
-    var now = new Date();
-    var serial = C.serialOfDate(now) + (now.getHours() * 60 + now.getMinutes()) / 1440; // local (Pacific) clock
-    Excel.run(function (context) {
-      var ws = context.workbook.worksheets.getItem(SETTINGS_SHEET);
-      var c = ws.getRange('I2');
-      c.values = [[serial]];
-      c.numberFormat = [['yyyy-mm-dd h:mm AM/PM']];
-      return context.sync();
-    }).then(function () { state.reportStamp = serial; render(); })
-      .catch(function (e) { $('warnings').appendChild(el('div', { class: 'warn' }, 'Could not save the report date: ' + (e && e.message || e))); });
-  }
-
   // ---------- load ----------
   function load() {
     $('window').textContent = 'Loading…';
@@ -127,16 +110,9 @@
         var lused = null;
         if (!lws.isNullObject) { lused = lws.getUsedRangeOrNullObject(true); lused.load('values,rowIndex,columnIndex,rowCount,columnCount'); }
         return context.sync().then(function () {
-          // Sheets made by an older version have no I1 header yet: add it.
-          var i1 = sused.values[0] ? sused.values[0][8] : '';
-          var fixHeader = !String(i1 || '').trim();
-          if (fixHeader) addReportHeader(sws);
           readSettings(sused.values, sws);
-          var done = function () {
-            if (!lused) throw new Error('No sheet named "' + LIST_SHEET + '" in this workbook.');
-            return listValues(lused);
-          };
-          return fixHeader ? context.sync().then(done) : done();
+          if (!lused) throw new Error('No sheet named "' + LIST_SHEET + '" in this workbook.');
+          return listValues(lused);
         });
       });
     }).then(function (values) {
@@ -176,10 +152,6 @@
     });
     if (res.skipped.length) w.appendChild(el('div', { class: 'warn' }, 'Skipped ' + res.skipped.length + ' row(s) where Appt Dt is not a date: sheet row ' + res.skipped.map(function (s) { return s.row; }).join(', ') + '.'));
     if (res.badNames) w.appendChild(el('div', { class: 'warn' }, res.badNames + ' row(s) have a blank or non "Last, First" Pat Name, so no LASFIR code could be made.'));
-    var fresh = C.reportFreshness(state.reportStamp, C.serialOfDate(new Date()));
-    $('stampInfo').textContent = fresh.day === null ? 'Report pulled: not set' : 'Report pulled: ' + C.fmtDate(fresh.day);
-    if (!fresh.ok) w.appendChild(el('div', { class: 'warn' }, (fresh.day === null ? 'No report date is set' : 'The report date is ' + C.fmtDate(fresh.day) + ', not today') +
-      ', so the scheduled run will send nothing. After pasting a fresh report into List, click "Mark report pulled now".'));
     if (!$('baseUrl').value.trim()) w.appendChild(el('div', { class: 'warn' }, 'No workbook link set, so emails will have no "View" links.'));
 
     var host = $('clinics'); host.textContent = '';

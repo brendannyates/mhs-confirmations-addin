@@ -3,7 +3,7 @@
 // Same rules as the add-in (core.js). Keep the two in sync.
 //
 // Input  todayIso: "yyyy-MM-dd" in Pacific time, supplied by the flow (Office Scripts run in UTC).
-// Output {status: "ok" | "stale" | "error", message, emails: [{clinic,to,subject,html,count}], warnings: [], ownerHtml}
+// Output {status: "ok" | "error", message, emails: [{clinic,to,subject,html,count}], warnings: [], ownerHtml}
 // ownerHtml: one summary for the workbook owner (status, message, every warning). The flow emails it when warnings is not empty.
 
 type Cell = string | number | boolean;
@@ -12,7 +12,7 @@ interface Item {
   rendering: string; created: number | null; k: string; l: string; m: string; n: string;
 }
 
-// Mirror of CLINICS / LOCATION_ALIASES in core.js. Keep the two in sync.
+// Fallback clinic list (mirror of CLINICS in core.js). Confirm Settings A:B are used when present.
 const CLINICS: string[][] = [
   ['Burlingame - CA', 'helpbur@mindfulhealthsolutions.com'],
   ['Castro - CA', 'helpcastro@mindfulhealthsolutions.com'],
@@ -36,7 +36,6 @@ const CLINICS: string[][] = [
   ['Tacoma - WA', 'helptacoma@mindfulhealthsolutions.com'],
   ['Wenatchee - WA', 'helpwenatchee@mindfulhealthsolutions.com']
 ];
-const ALIASES: { [k: string]: string } = { 'castro street': 'Castro - CA' };
 
 const LIST_SHEET = 'List';
 const SETTINGS_SHEET = 'Confirm Settings';
@@ -44,7 +43,6 @@ const EPOCH = Date.UTC(1899, 11, 30);
 // Signature appended to every clinic email (not the owner alerts).
 // Mirror of SIGNATURE_HTML in core.js.
 const SIGNATURE_HTML = "<p style=\"margin:16px 0 0\">Best,</p><p style=\"margin:8px 0 0;line-height:1.35\"><b>Brendan Yates</b> (he/him)<br>Senior Practice Manager<br>SF Castro | San Rafael<br>P: (844) 867- 8444 opt. 2 | F: (415) 964-5419<br><a href=\"https://www.mindfulhealthsolutions.com\">www.mindfulhealthsolutions.com</a></p><p style=\"margin:16px 0 0;font-size:11px;color:#666\">This email communication and any attachments may contain confidential information for the use of the designated recipients named above. Distribution, reproduction or any other use of this transmission by any party other than the intended recipient is prohibited and may be subject to protection under the law, including the Health Insurance Portability and Accountability Act (HIPAA). If you receive this e-mail in error, please notify the sender immediately by reply e-mail and permanently delete this e-mail and any attachments.</p>";
-const REPORT_HEADER = 'Report pulled (date/time). Must be today or the scheduled run sends nothing.';
 type Out = { status: string; message: string; emails: object[]; warnings: string[]; ownerHtml: string };
 
 function main(workbook: ExcelScript.Workbook, todayIso: string): string {
@@ -64,34 +62,31 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
       sws.getRange('A1:C' + data.length).setValues(data);
       sws.getRange('E1').setValue('Holidays (YYYY-MM-DD, optional)');
       sws.getRange('G1').setValue('Workbook link for View (paste in G2 if not using the add-in)');
-      sws.getRange('I1').setValue(REPORT_HEADER);
-      sws.getRange('A1:I1').getFormat().getFont().setBold(true);
+      sws.getRange('A1:G1').getFormat().getFont().setBold(true);
       sws.getRange('C2:C' + data.length).getDataValidation().setRule({ list: { inCellDropDown: true, source: 'Yes,No' } });
       return fail(out, 'Created "' + SETTINGS_SHEET + '" with every clinic set to No. Set Opt In in column C, paste the workbook link in G2, then run again. Nothing sent.');
     }
-    if (!String(sws.getRange('I1').getValue() || '').trim()) sws.getRange('I1').setValue(REPORT_HEADER); // sheets from older versions
     const sused = sws.getUsedRange(true);
     const sv: Cell[][] = sused ? sused.getValues() : [];
     const optIn: { [k: string]: boolean } = {};
     const holidays: number[] = [];
+    // Clinics come from Confirm Settings A (ClinicName) and B (ClinicEmail). Built-in list is only a fallback.
+    const clinics: string[][] = [];
     for (let i = 1; i < sv.length; i++) {
-      if (sv[i][0]) optIn[String(sv[i][0]).trim()] = /^y/i.test(String(sv[i][2] || ''));
+      const cname = String(sv[i][0] || '').trim();
+      if (cname) {
+        optIn[cname] = /^y/i.test(String(sv[i][2] || ''));
+        const fallback = CLINICS.filter((c) => c[0].toLowerCase() === cname.toLowerCase())[0];
+        const cemail = String(sv[i][1] || '').trim() || (fallback ? fallback[1] : '');
+        if (cemail) clinics.push([cname, cemail]);
+        else if (optIn[cname]) out.warnings.push('Clinic "' + cname + '" is opted in but has no ClinicEmail in column B, so it was NOT emailed.');
+      }
       const h = sv[i][4];
       if (typeof h === 'number') holidays.push(h);
       else if (h) { const t = Date.parse(String(h) + 'T00:00:00Z'); if (!isNaN(t)) holidays.push(Math.round((t - EPOCH) / 86400000)); }
     }
     const baseUrl = sv.length > 1 && sv[1][6] ? String(sv[1][6]).trim() : ''; // Confirm Settings!G2
     if (!baseUrl) out.warnings.push('Confirm Settings!G2 (workbook link) is blank, so emails have no View links.');
-
-    // ---- freshness: Confirm Settings!I2 must say the report was pulled today ----
-    const stampRaw = sws.getRange('I2').getValue();
-    const stamp = typeof stampRaw === 'number' ? Math.floor(stampRaw) : textDateSerial(String(stampRaw || ''));
-    if (stamp === null || stamp !== today) {
-      out.status = 'stale';
-      out.message = (stamp === null ? 'No report date in ' + SETTINGS_SHEET + '!I2' : 'Report date in ' + SETTINGS_SHEET + '!I2 is ' + fmtDate(stamp) + ', not today (' + fmtDate(today) + ')') +
-        '. Paste a fresh report into List, then set I2 to today (or click "Mark report pulled now" in the add-in). Nothing sent.';
-      return finish(out);
-    }
 
     // ---- list data ----
     const ws = workbook.getWorksheet(LIST_SHEET);
@@ -124,12 +119,8 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
     }
     if (badDateRows.length) out.warnings.push(badDateRows.length + ' row(s) on List have an Appt Dt that is not a date and were skipped: sheet row ' +
       badDateRows.slice(0, 25).join(', ') + (badDateRows.length > 25 ? ' and more' : '') + '.');
-    if (maxDate < end) {
-      out.status = 'stale';
-      out.message = (maxDate ? 'List only runs through ' + fmtDate(maxDate) : 'List has no readable appointment dates') +
-        ' but the window ends ' + fmtDate(end) + '. Paste a fresh report. Nothing sent.';
-      return finish(out);
-    }
+    if (maxDate < end) out.warnings.push((maxDate ? 'List only runs through ' + fmtDate(maxDate) : 'List has no readable appointment dates') +
+      ' but the window ends ' + fmtDate(end) + '. Emails cover only the dates List has.');
 
     // ---- find opportunities ----
     // Mirror of findOpportunities in core.js.
@@ -142,7 +133,7 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
       if (d === null || d < today || d > end) continue;
       const status = [r[10], r[11], r[12], r[13]].map((x) => x == null ? '' : String(x)).join(' | ');
       if (hasConfirmed(status) || /resched/i.test(status) || /cancel/i.test(status)) continue;
-      const clinic = clinicFor(String(r[2] || ''));
+      const clinic = clinicFor(String(r[2] || ''), clinics);
       if (!clinic) { const key = String(r[2] || '(blank)'); (unmapped[key] = unmapped[key] || []).push(firstRow + idx); continue; }
       const nm = toLASFIR(r[1]);
       if (!nm.ok) badNames++;
@@ -160,7 +151,7 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
     if (badNames) out.warnings.push(badNames + ' row(s) in the window have a blank or non "Last, First" Pat Name, so the email shows (missing) or (check name).');
 
     // ---- build one email per OPTED-IN clinic with something to confirm ----
-    for (const c of CLINICS) {
+    for (const c of clinics) {
       const items = byClinic[c[0]];
       if (!items || !items.length || !optIn[c[0]]) continue;
       items.sort((a, b) => a.dateSerial - b.dateSerial || (a.timeFrac || 0) - (b.timeFrac || 0) || a.row - b.row);
@@ -221,11 +212,19 @@ function toTimeFrac(v: Cell): number | null {
 }
 
 // Mirror of clinicForLocation in core.js.
-function clinicFor(loc: string): string {
+// Match List "Loc Name" to a Confirm Settings ClinicName: drop the " - XX" state suffix from the clinic name,
+// then the location must START with that name (whole word). "Castro - CA" -> "castro" matches "Castro Street".
+// The longest matching name wins, so a more specific clinic name beats a shorter one.
+function clinicBase(name: string): string { return name.replace(/\s+-\s+[A-Za-z]{2}\s*$/, '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+function clinicFor(loc: string, clinics: string[][]): string {
   const k = loc.replace(/\s+/g, ' ').trim().toLowerCase();
-  if (ALIASES[k]) return ALIASES[k];
-  for (const c of CLINICS) if (c[0].replace(/\s+-\s+[A-Z]{2}$/, '').toLowerCase() === k) return c[0];
-  return '';
+  if (!k) return '';
+  let best = '', bestLen = 0;
+  for (const c of clinics) {
+    const b = clinicBase(c[0]);
+    if (b && (k === b || k.indexOf(b + ' ') === 0) && b.length > bestLen) { best = c[0]; bestLen = b.length; }
+  }
+  return best;
 }
 
 // Mirror of letters / toLASFIR in core.js.

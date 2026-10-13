@@ -7,7 +7,7 @@
   'use strict';
 
   // Hardcoded per request. Order preserved for the UI.
-  // Mirror of CLINICS / ALIASES in office-scripts/ConfirmationsRun.ts. Keep the two in sync.
+  // Mirror of CLINICS (fallback list) in office-scripts/ConfirmationsRun.ts. Confirm Settings A:B override it at load.
   var CLINICS = [
     ['Burlingame - CA', 'helpbur@mindfulhealthsolutions.com'],
     ['Castro - CA', 'helpcastro@mindfulhealthsolutions.com'],
@@ -32,23 +32,26 @@
     ['Wenatchee - WA', 'helpwenatchee@mindfulhealthsolutions.com']
   ].map(function (c) { return { name: c[0], email: c[1] }; });
 
-  // "Loc Name" values in the List sheet carry no state suffix, and a few differ from the clinic name.
-  // Anything not matched here or by stripping " - XX" is reported as unmapped, never dropped silently.
-  var LOCATION_ALIASES = { 'castro street': 'Castro - CA' };
-
-  var LOC_INDEX = (function () {
-    var m = {};
-    CLINICS.forEach(function (c) { m[c.name.replace(/\s+-\s+[A-Z]{2}$/, '').toLowerCase()] = c.name; });
-    Object.keys(LOCATION_ALIASES).forEach(function (k) { m[k] = LOCATION_ALIASES[k]; });
-    return m;
-  })();
-
+  // Match List "Loc Name" to a clinic: drop the " - XX" state suffix from the clinic name, then the location
+  // must START with that name (whole word). "Castro - CA" -> "castro" matches "Castro Street". Longest match wins.
+  // Same rule as the Office Script. Unmatched locations are reported, never dropped silently.
+  var DEFAULT_CLINICS = CLINICS.slice();
+  function clinicBase(name) { return String(name).replace(/\s+-\s+[A-Za-z]{2}\s*$/, '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+  function setClinics(list) { CLINICS = list && list.length ? list : DEFAULT_CLINICS.slice(); }
+  function getClinics() { return CLINICS; }
   function clinicForLocation(loc) {
     var k = String(loc || '').replace(/\s+/g, ' ').trim().toLowerCase();
-    return LOC_INDEX[k] || null;
+    if (!k) return null;
+    var best = null, bestLen = 0;
+    CLINICS.forEach(function (c) {
+      var b = clinicBase(c.name);
+      if (b && (k === b || k.indexOf(b + ' ') === 0) && b.length > bestLen) { best = c.name; bestLen = b.length; }
+    });
+    return best;
   }
   function emailForClinic(name) {
-    for (var i = 0; i < CLINICS.length; i++) if (CLINICS[i].name === name) return CLINICS[i].email;
+    var lists = [CLINICS, DEFAULT_CLINICS];
+    for (var j = 0; j < lists.length; j++) for (var i = 0; i < lists[j].length; i++) if (lists[j][i].name.toLowerCase() === String(name).toLowerCase()) return lists[j][i].email;
     return '';
   }
 
@@ -150,7 +153,7 @@
 
   /* rows: array of value arrays (A:O), firstRow: sheet row number of rows[0].
      opts: { todaySerial, includeToday=true, skipCancelled=true, holidays=[] } */
-  // Mirror of the window, stale-date and "find opportunities" blocks in office-scripts/ConfirmationsRun.ts main().
+  // Mirror of the window and "find opportunities" blocks in office-scripts/ConfirmationsRun.ts main().
   function findOpportunities(rows, firstRow, opts) {
     opts = opts || {};
     var includeToday = opts.includeToday !== false, skipCancelled = opts.skipCancelled !== false;
@@ -250,7 +253,7 @@
   }
 
   return {
-    CLINICS: CLINICS, COL: COL, clinicForLocation: clinicForLocation, emailForClinic: emailForClinic,
+    get CLINICS() { return CLINICS; }, setClinics: setClinics, getClinics: getClinics, COL: COL, clinicForLocation: clinicForLocation, emailForClinic: emailForClinic,
     toLASFIR: toLASFIR, serialOfDate: serialOfDate, addBusinessDays: addBusinessDays, fmtDate: fmtDate, fmtTime: fmtTime,
     toSerial: toSerial, toTimeFrac: toTimeFrac, reportFreshness: reportFreshness,
     hasConfirmed: hasConfirmed, hasRescheduled: hasRescheduled, hasCancelled: hasCancelled,

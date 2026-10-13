@@ -7,6 +7,7 @@
   'use strict';
 
   // Hardcoded per request. Order preserved for the UI.
+  // Mirror of CLINICS / ALIASES in office-scripts/ConfirmationsRun.ts. Keep the two in sync.
   var CLINICS = [
     ['Burlingame - CA', 'helpbur@mindfulhealthsolutions.com'],
     ['Castro - CA', 'helpcastro@mindfulhealthsolutions.com'],
@@ -52,6 +53,7 @@
   }
 
   // ---------- LASFIR: last 3 of last name + first 3 of first name. "Smith, John (Tom)" -> SMIJOH ----------
+  // Mirror of letters / toLASFIR in office-scripts/ConfirmationsRun.ts.
   function letters(s) { return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z]/g, ''); }
   function toLASFIR(raw) {
     var s = String(raw == null ? '' : raw).trim();
@@ -65,6 +67,7 @@
   }
 
   // ---------- dates ----------
+  // Mirror of the date helpers (isWeekend through toTimeFrac) in office-scripts/ConfirmationsRun.ts.
   var EPOCH = Date.UTC(1899, 11, 30);
   function serialOfDate(d) { return Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - EPOCH) / 86400000); }
   function dateOfSerial(n) { return new Date(EPOCH + Math.floor(n) * 86400000); } // UTC fields
@@ -124,6 +127,7 @@
   }
 
   // ---------- status rules ----------
+  // Mirror of hasConfirmed and the resched/cancel tests in office-scripts/ConfirmationsRun.ts.
   function hasConfirmed(t) {
     var s = String(t).replace(/\bnot\s+confirm/gi, ' ').replace(/\bunconfirm/gi, ' ');
     return /\bconf/i.test(s); // "confirmed", "CONF", "Luma-Confirmed", "Confirmed - GB"
@@ -132,6 +136,7 @@
   function hasCancelled(t) { return /cancel/i.test(t); }
 
   // Column positions (0-based) in the List sheet. Verified against headers at load time.
+  // Mirror of the column indexes and expected headers in office-scripts/ConfirmationsRun.ts.
   var COL = { id: 0, name: 1, loc: 2, event: 3, date: 4, time: 5, rendering: 8, created: 9, k: 10, l: 11, m: 12, n: 13, notes: 14 };
   var EXPECTED_HEADERS = { 0: 'md rc', 1: 'pat name', 2: 'loc name', 4: 'appt dt', 5: 'beg tm' };
 
@@ -145,6 +150,7 @@
 
   /* rows: array of value arrays (A:O), firstRow: sheet row number of rows[0].
      opts: { todaySerial, includeToday=true, skipCancelled=true, holidays=[] } */
+  // Mirror of the window, stale-date and "find opportunities" blocks in office-scripts/ConfirmationsRun.ts main().
   function findOpportunities(rows, firstRow, opts) {
     opts = opts || {};
     var includeToday = opts.includeToday !== false, skipCancelled = opts.skipCancelled !== false;
@@ -189,6 +195,7 @@
   }
 
   // ---------- email ----------
+  // Mirror of esc, the email wording, SIGNATURE_HTML and buildEmail in office-scripts/ConfirmationsRun.ts. Keep the two in sync.
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function rowLink(baseUrl, row) {
     if (!baseUrl) return '';
@@ -200,7 +207,8 @@
   var CHECKLIST = 'Please standardly verify email address, date/time and appointment medium (in-person/tele), reminder to account for annual consent forms during check-in, directions to clinic, clinic extension, help email, enroll in portal, etc.';
 
   var SIGNATURE_HTML = "<p style=\"margin:16px 0 0\">Best,</p><p style=\"margin:8px 0 0;line-height:1.35\"><b>Brendan Yates</b> (he/him)<br>Senior Practice Manager<br>SF Castro | San Rafael<br>P: (844) 867- 8444 opt. 2 | F: (415) 964-5419<br><a href=\"https://www.mindfulhealthsolutions.com\">www.mindfulhealthsolutions.com</a></p><p style=\"margin:16px 0 0;font-size:11px;color:#666\">This email communication and any attachments may contain confidential information for the use of the designated recipients named above. Distribution, reproduction or any other use of this transmission by any party other than the intended recipient is prohibited and may be subject to protection under the law, including the Health Insurance Portability and Accountability Act (HIPAA). If you receive this e-mail in error, please notify the sender immediately by reply e-mail and permanently delete this e-mail and any attachments.</p>";
-  var SIGNATURE_TEXT = "Best,\n\nBrendan Yates (he/him)\nSenior Practice Manager\nSF Castro | San Rafael\nP: (844) 867- 8444 opt. 2 | F: (415) 964-5419\nwww.mindfulhealthsolutions.com\n\nThis email communication and any attachments may contain confidential information for the use of the designated recipients named above. Distribution, reproduction or any other use of this transmission by any party other than the intended recipient is prohibited and may be subject to protection under the law, including the Health Insurance Portability and Accountability Act (HIPAA). If you receive this e-mail in error, please notify the sender immediately by reply e-mail and permanently delete this e-mail and any attachments.";
+  // Plain-text signature derived from the HTML: paragraph breaks -> blank line, <br> -> newline, other tags dropped.
+  var SIGNATURE_TEXT = SIGNATURE_HTML.replace(/<\/p>\s*<p[^>]*>/g, '\n\n').replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '');
 
   function buildEmail(clinicName, items, res, opts) {
     opts = opts || {};

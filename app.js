@@ -4,6 +4,7 @@
   'use strict';
   var C = window.MHSCore;
   var LIST_SHEET = 'List', SETTINGS_SHEET = 'Confirm Settings';
+  // REPORT_HEADER mirrors the same constant in office-scripts/ConfirmationsRun.ts.
   var REPORT_HEADER = 'Report pulled (date/time). Must be today or the scheduled run sends nothing.';
   var state = { res: null, optIn: {}, holidays: [], opts: {} };
   var $ = function (id) { return document.getElementById(id); };
@@ -38,47 +39,53 @@
     return /[?&]web=1/.test(u) ? u : u + (u.indexOf('?') < 0 ? '?' : '&') + 'web=1';
   }
 
-  // ---------- settings sheet (so the future Office Script can read opt-ins) ----------
-  function ensureSettings(context) {
-    var sheets = context.workbook.worksheets;
-    var ws = sheets.getItemOrNullObject(SETTINGS_SHEET);
-    return context.sync().then(function () {
-      if (!ws.isNullObject) return ws;
-      var s = sheets.add(SETTINGS_SHEET);
-      var data = [['ClinicName', 'ClinicEmail', 'Opt In (Yes/No)']].concat(C.CLINICS.map(function (c) { return [c.name, c.email, 'No']; }));
-      s.getRange('A1:C' + data.length).values = data;
-      s.getRange('E1').values = [['Holidays (YYYY-MM-DD, optional)']];
-      s.getRange('G1').values = [['Workbook link for View (paste in G2 if not using the add-in)']];
-      s.getRange('C2:C' + data.length).dataValidation.rule = { list: { inCellDropDown: true, source: 'Yes,No' } };
-      return context.sync().then(function () { return s; });
-    }).then(function (s) {
-      // Sheets made by an older version have no I1 header yet: add it.
-      var i1 = s.getRange('I1'); i1.load('values');
-      return context.sync().then(function () {
-        if (!String(i1.values[0][0] || '').trim()) {
-          i1.values = [[REPORT_HEADER]];
-          s.getRange('A1:I1').format.font.bold = true;
-          s.getRange('A:I').format.autofitColumns();
-        }
-        return context.sync().then(function () { return s; });
-      });
-    });
+  // ---------- settings sheet (the "Confirmations Run" Office Script reads opt-ins, holidays, G2 link and I2 stamp from it) ----------
+  // Mirror of the sheet-creation block in office-scripts/ConfirmationsRun.ts. Keep the two in sync.
+  function createSettings(sheets) { // queues only; caller syncs
+    var s = sheets.add(SETTINGS_SHEET);
+    var data = [['ClinicName', 'ClinicEmail', 'Opt In (Yes/No)']].concat(C.CLINICS.map(function (c) { return [c.name, c.email, 'No']; }));
+    s.getRange('A1:C' + data.length).values = data;
+    s.getRange('E1').values = [['Holidays (YYYY-MM-DD, optional)']];
+    s.getRange('G1').values = [['Workbook link for View (paste in G2 if not using the add-in)']];
+    s.getRange('C2:C' + data.length).dataValidation.rule = { list: { inCellDropDown: true, source: 'Yes,No' } };
+    addReportHeader(s);
+    return s;
   }
 
-  function readSettings(context, ws) {
-    var r = ws.getUsedRange(true); r.load('values');
-    return context.sync().then(function () {
-      var optIn = {}, holidays = [];
-      r.values.slice(1).forEach(function (row) {
-        if (row[0]) optIn[String(row[0]).trim()] = /^y/i.test(String(row[2] || ''));
-        var h = row[4];
-        if (h !== '' && h != null) { var s = typeof h === 'number' ? h : C.serialOfDate(new Date(String(h) + 'T00:00:00')); if (!isNaN(s)) holidays.push(s); }
-      });
-      state.optIn = optIn; state.holidays = holidays;
-      state.sheetUrl = r.values.length > 1 && r.values[1][6] ? String(r.values[1][6]).trim() : '';
-      state.reportStamp = r.values.length > 1 ? r.values[1][8] : '';
-      state.settingsWs = ws;
+  function addReportHeader(s) { // queues only; caller syncs
+    s.getRange('I1').values = [[REPORT_HEADER]];
+    s.getRange('A1:I1').format.font.bold = true;
+    s.getRange('A:I').format.autofitColumns();
+  }
+
+  // values: Confirm Settings used range, assumed to start at A1 (A1 always holds "ClinicName").
+  function readSettings(values, ws) {
+    var optIn = {}, holidays = [];
+    values.slice(1).forEach(function (row) {
+      if (row[0]) optIn[String(row[0]).trim()] = /^y/i.test(String(row[2] || ''));
+      var h = row[4];
+      if (h !== '' && h != null) { var s = typeof h === 'number' ? h : C.serialOfDate(new Date(String(h) + 'T00:00:00')); if (!isNaN(s)) holidays.push(s); }
     });
+    state.optIn = optIn; state.holidays = holidays;
+    state.sheetUrl = values.length > 1 && values[1][6] ? String(values[1][6]).trim() : '';
+    state.reportStamp = values.length > 1 ? values[1][8] : '';
+    state.settingsWs = ws;
+  }
+
+  // Rebuild the A:O block from row 1 down to the last used row, as getRangeByIndexes(0, 0, rowIndex + rowCount, 15) would,
+  // from a used range that may start below row 1 or right of column A.
+  function listValues(used) {
+    if (used.isNullObject) return [];
+    var out = [];
+    for (var r = 0; r < used.rowIndex + used.rowCount; r++) {
+      var row = [];
+      for (var c = 0; c < 15; c++) {
+        var ur = r - used.rowIndex, uc = c - used.columnIndex;
+        row.push(ur >= 0 && uc >= 0 && uc < used.columnCount ? used.values[ur][uc] : '');
+      }
+      out.push(row);
+    }
+    return out;
   }
 
   function writeSheetUrl(url) {
@@ -111,17 +118,25 @@
   function load() {
     $('window').textContent = 'Loading…';
     Excel.run(function (context) {
-      return ensureSettings(context).then(function (settingsWs) {
-        return readSettings(context, settingsWs);
-      }).then(function () {
-        var ws = context.workbook.worksheets.getItemOrNullObject(LIST_SHEET);
+      var sheets = context.workbook.worksheets;
+      var sws = sheets.getItemOrNullObject(SETTINGS_SHEET);
+      var lws = sheets.getItemOrNullObject(LIST_SHEET);
+      return context.sync().then(function () {
+        if (sws.isNullObject) sws = createSettings(sheets);
+        var sused = sws.getUsedRange(true); sused.load('values');
+        var lused = null;
+        if (!lws.isNullObject) { lused = lws.getUsedRangeOrNullObject(true); lused.load('values,rowIndex,columnIndex,rowCount,columnCount'); }
         return context.sync().then(function () {
-          if (ws.isNullObject) throw new Error('No sheet named "' + LIST_SHEET + '" in this workbook.');
-          var used = ws.getUsedRange(true); used.load('rowIndex,rowCount');
-          return context.sync().then(function () {
-            var range = ws.getRangeByIndexes(0, 0, used.rowIndex + used.rowCount, 15); range.load('values');
-            return context.sync().then(function () { return range.values; });
-          });
+          // Sheets made by an older version have no I1 header yet: add it.
+          var i1 = sused.values[0] ? sused.values[0][8] : '';
+          var fixHeader = !String(i1 || '').trim();
+          if (fixHeader) addReportHeader(sws);
+          readSettings(sused.values, sws);
+          var done = function () {
+            if (!lused) throw new Error('No sheet named "' + LIST_SHEET + '" in this workbook.');
+            return listValues(lused);
+          };
+          return fixHeader ? context.sync().then(done) : done();
         });
       });
     }).then(function (values) {

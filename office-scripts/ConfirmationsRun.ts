@@ -12,6 +12,7 @@ interface Item {
   rendering: string; created: number | null; k: string; l: string; m: string; n: string;
 }
 
+// Mirror of CLINICS / LOCATION_ALIASES in core.js. Keep the two in sync.
 const CLINICS: string[][] = [
   ['Burlingame - CA', 'helpbur@mindfulhealthsolutions.com'],
   ['Castro - CA', 'helpcastro@mindfulhealthsolutions.com'],
@@ -41,6 +42,7 @@ const LIST_SHEET = 'List';
 const SETTINGS_SHEET = 'Confirm Settings';
 const EPOCH = Date.UTC(1899, 11, 30);
 // Signature appended to every clinic email (not the owner alerts).
+// Mirror of SIGNATURE_HTML in core.js.
 const SIGNATURE_HTML = "<p style=\"margin:16px 0 0\">Best,</p><p style=\"margin:8px 0 0;line-height:1.35\"><b>Brendan Yates</b> (he/him)<br>Senior Practice Manager<br>SF Castro | San Rafael<br>P: (844) 867- 8444 opt. 2 | F: (415) 964-5419<br><a href=\"https://www.mindfulhealthsolutions.com\">www.mindfulhealthsolutions.com</a></p><p style=\"margin:16px 0 0;font-size:11px;color:#666\">This email communication and any attachments may contain confidential information for the use of the designated recipients named above. Distribution, reproduction or any other use of this transmission by any party other than the intended recipient is prohibited and may be subject to protection under the law, including the Health Insurance Portability and Accountability Act (HIPAA). If you receive this e-mail in error, please notify the sender immediately by reply e-mail and permanently delete this e-mail and any attachments.</p>";
 const REPORT_HEADER = 'Report pulled (date/time). Must be today or the scheduled run sends nothing.';
 type Out = { status: string; message: string; emails: object[]; warnings: string[]; ownerHtml: string };
@@ -53,6 +55,7 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
     const today = Math.round((Date.UTC(+m[1], +m[2] - 1, +m[3]) - EPOCH) / 86400000);
 
     // ---- settings: opt-ins, holidays, workbook link ----
+    // Sheet creation mirrors createSettings in app.js; parsing mirrors readSettings in app.js.
     let sws = workbook.getWorksheet(SETTINGS_SHEET);
     if (!sws) {
       // No add-in needed: the script can create the sheet. Everything on it can be filled in by hand.
@@ -99,6 +102,7 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
     let hdr = -1;
     for (let i = 0; i < Math.min(10, values.length); i++) if (String(values[i][0]).trim().toLowerCase() === 'md rc') { hdr = i; break; }
     if (hdr < 0) return fail(out, 'Header row (column A "Md Rc") not found on List.');
+    // Mirror of COL / EXPECTED_HEADERS in core.js.
     const expected: { [k: number]: string } = { 0: 'md rc', 1: 'pat name', 2: 'loc name', 4: 'appt dt', 5: 'beg tm' };
     for (const k of Object.keys(expected)) {
       if (String(values[hdr][+k]).trim().toLowerCase() !== expected[+k]) return fail(out, 'Column headers moved on List (expected Md Rc, Pat Name, Loc Name, Appt Dt, Beg Tm). Nothing sent.');
@@ -128,6 +132,7 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
     }
 
     // ---- find opportunities ----
+    // Mirror of findOpportunities in core.js.
     const byClinic: { [k: string]: Item[] } = {};
     let badNames = 0;
     const unmapped: { [k: string]: number[] } = {};
@@ -180,6 +185,7 @@ function finish(out: Out): string {
   return JSON.stringify(out);
 }
 
+// Mirror of the date helpers in core.js (textDateSerial through toTimeFrac, and isWeekend through fmtTime below).
 // Text dates: M/D/YY(YY) or YYYY-MM-DD, optional trailing time. Same parser as core.js.
 function textDateSerial(s: string): number | null {
   s = s.trim();
@@ -214,6 +220,7 @@ function toTimeFrac(v: Cell): number | null {
   return null;
 }
 
+// Mirror of clinicForLocation in core.js.
 function clinicFor(loc: string): string {
   const k = loc.replace(/\s+/g, ' ').trim().toLowerCase();
   if (ALIASES[k]) return ALIASES[k];
@@ -221,6 +228,7 @@ function clinicFor(loc: string): string {
   return '';
 }
 
+// Mirror of letters / toLASFIR in core.js.
 function letters(s: string): string { return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z]/g, ''); }
 function toLASFIR(raw: Cell): { code: string; ok: boolean; reason: string } {
   const s = String(raw == null ? '' : raw).trim();
@@ -233,6 +241,7 @@ function toLASFIR(raw: Cell): { code: string; ok: boolean; reason: string } {
   return { code: (last.slice(0, 3) + first.slice(0, 3)).toUpperCase(), ok: true, reason: '' };
 }
 
+// Mirror of hasConfirmed in core.js.
 function hasConfirmed(t: string): boolean {
   return /\bconf/i.test(t.replace(/\bnot\s+confirm/gi, ' ').replace(/\bunconfirm/gi, ' '));
 }
@@ -257,6 +266,7 @@ function fmtTime(frac: number | null): string {
 }
 function esc(s: Cell | null): string { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
+// Mirror of esc, SIGNATURE_HTML and buildEmail in core.js. Keep the two in sync.
 function buildEmail(clinic: string, to: string, items: Item[], start: number, end: number, baseUrl: string) {
   const cols: [string, (i: Item) => Cell][] = [
     ['Md Rc', (i) => i.mdrc],

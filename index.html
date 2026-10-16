@@ -9,7 +9,7 @@
 </head>
 <body>
 <header>
-  <h1>Confirmations needed</h1>
+  <div class="titlebar"><h1>Confirmations needed</h1><button id="refresh" title="Re-read the workbook" aria-label="Refresh">&#8635;</button></div>
   <div id="window" class="muted">Loading…</div>
 </header>
 
@@ -20,7 +20,6 @@
   <label class="url">Workbook link for "View"
     <input type="text" id="baseUrl" placeholder="https://…sharepoint.com/…/file.xlsx?web=1">
   </label>
-  <button id="refresh">Refresh</button>
 </section>
 
 <div id="warnings"></div>

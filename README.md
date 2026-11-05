@@ -31,7 +31,7 @@ This repo holds code only. It contains no patient data and no link to the workbo
 3. Click **Confirmations** on the Home ribbon. The pane opens on the right.
 
 ### Step 3: First run of the pane
-1. On first open the pane creates a `Confirm Settings` sheet: clinics and emails in A:C (Opt In all "No"), holidays in E, workbook link in G.
+1. On first open the pane creates a `Confirm Settings` sheet: clinics and emails in A:C (Opt In all "No"), CC in D, holidays in E, workbook link in G.
 2. Check the top line: a date window (today to two business days out) and counts.
 3. Read every yellow warning. They flag unmapped locations, unreadable dates, bad names, a missing workbook link and an out-of-date report.
 4. Open one clinic card and click **Preview email**. Check that Md Rc is the first column, plus the To address and the subject.
@@ -40,7 +40,8 @@ This repo holds code only. It contains no patient data and no link to the workbo
 
 ### Step 4: Settings
 1. On `Confirm Settings`, Practice Leaders change column C to **Yes** for each clinic that should get emails. Nothing sends while a clinic is "No".
-2. Optional: list holidays in column E, one per row, as YYYY-MM-DD. They're skipped when counting business days.
+2. Optional: put CC addresses in column D for a clinic (for example a Practice Leader). Separate several with `;`. Only @mymhs.com, @mindfulhealthsolutions.com and @meetradial.com addresses are copied, because the email carries MRNs; anything else is left out and named in the warnings email. CC only goes out when that clinic is opted in.
+3. Optional: list holidays in column E, one per row, as YYYY-MM-DD. They're skipped when counting business days.
 
 ### Step 5: Add the Office Script
 1. In the workbook, go to **Automate > New Script**. If the Automate tab is missing, an admin has to enable Office Scripts.
@@ -62,11 +63,11 @@ This repo holds code only. It contains no patient data and no link to the workbo
      ```json
      {"type":"object","properties":{"status":{"type":"string"},"message":{"type":"string"},"ownerHtml":{"type":"string"},
      "warnings":{"type":"array","items":{"type":"string"}},
-     "emails":{"type":"array","items":{"type":"object","properties":{"clinic":{"type":"string"},"to":{"type":"string"},"subject":{"type":"string"},"html":{"type":"string"},"count":{"type":"integer"}}}}}}
+     "emails":{"type":"array","items":{"type":"object","properties":{"clinic":{"type":"string"},"to":{"type":"string"},"cc":{"type":"string"},"subject":{"type":"string"},"html":{"type":"string"},"count":{"type":"integer"}}}}}}
      ```
 5. **+ New step > Condition**: `status` (from Parse JSON) **is equal to** `ok`.
 6. In **If yes**:
-   1. **Apply to each**, over `emails`. Inside it, **Send an email (V2)** (Office 365 Outlook): To = `to`, Subject = `subject`, Body = `html`. Under Advanced options, set Is HTML = **Yes** if shown. (To send from a shared mailbox, use "Send an email from a shared mailbox (V2)" instead.)
+   1. **Apply to each**, over `emails`. Inside it, **Send an email (V2)** (Office 365 Outlook): To = `to`, Subject = `subject`, Body = `html`. Under Advanced options (Show all), set CC = `cc` and Is HTML = **Yes** if shown. A blank `cc` sends with no CC. (To send from a shared mailbox, use "Send an email from a shared mailbox (V2)" instead.)
    2. After the loop (still in If yes), add another **Condition**. Left side, Expression: `length(body('Parse_JSON')?['warnings'])`. Operator **is greater than**. Right side `0`.
       In its If yes: **Send an email (V2)** to yourself. Subject `Confirmations Run: warnings`, Body = `ownerHtml`, Is HTML = Yes.
 7. In **If no**: **Send an email (V2)** to yourself. Subject `Confirmations Run: nothing sent`, Body = `ownerHtml`, Is HTML = Yes.
@@ -92,6 +93,7 @@ Nothing to do. The data analyst maintains `List`, and each run (8:00 and 16:00) 
 - A row is skipped if K:N contain "confirmed"/"conf" or "rescheduled" (but not "unconfirmed"/"not confirmed"), or "cancel".
 - Dates and times may be real Excel values or text (`10/14/2026`, `2026-10-14`, `9:30 AM`). Rows with unreadable dates are reported as warnings.
 - LASFIR: first 3 letters of the last name + first 3 of the first name; anything in parentheses is ignored.
+- CC comes from `Confirm Settings` column D, MHS domains only, duplicates and the clinic's own address removed.
 - Clinics and their emails come from `Confirm Settings` columns A and B. A List `Loc Name` matches a clinic when it starts with the clinic name minus its " - XX" state (whole word): "Castro - CA" matches "Castro Street", "Oakland - CA" matches "Oakland IV Ketamine Clinic". The longest match wins. Unmatched locations are reported in the warnings email, never silently dropped.
 - The run refuses to send only if the List headers have moved. If List doesn't reach the window's end, it still sends and adds a warning.
 - The 16:00 run re-sends anything still unconfirmed from 8:00. Run times are Pacific, so TX clinics get emails at 10:00 and 18:00 Central.

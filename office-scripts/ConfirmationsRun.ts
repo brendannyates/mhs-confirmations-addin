@@ -81,7 +81,7 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
         const fallback = CLINICS.filter((c) => c[0].toLowerCase() === cname.toLowerCase())[0];
         const cemail = String(sv[i][1] || '').trim() || (fallback ? fallback[1] : '');
         const cc = parseCc(sv[i][3], cemail);
-        if (cc.dropped.length) out.warnings.push('CC for "' + cname + '" left out ' + cc.dropped.join(', ') + ': only @mymhs.com or @mindfulhealthsolutions.com addresses are copied.');
+        if (cc.dropped.length) out.warnings.push('CC for "' + cname + '" left out ' + cc.dropped.join(', ') + ': only @mymhs.com, @mindfulhealthsolutions.com or @meetradial.com addresses are copied.');
         if (cemail) clinics.push([cname, cemail, cc.cc]);
         else if (optIn[cname]) out.warnings.push('Clinic "' + cname + '" is opted in but has no ClinicEmail in column B, so it was NOT emailed.');
       }
@@ -247,7 +247,7 @@ function toLASFIR(raw: Cell): { code: string; ok: boolean; reason: string } {
 // Mirror of CC_DOMAIN / parseCc in core.js.
 // Several addresses may be separated by ; , or spaces. Only MHS addresses are kept: the email carries MRNs,
 // so a typo to an outside domain would be a disclosure. Duplicates and the clinic's own To address are dropped.
-const CC_DOMAIN = /^[^@\s]+@(mymhs\.com|mindfulhealthsolutions\.com)$/i;
+const CC_DOMAIN = /^[^@\s]+@(mymhs\.com|mindfulhealthsolutions\.com|meetradial\.com)$/i;
 function parseCc(raw: Cell, to: string): { cc: string; dropped: string[] } {
   const seen: { [k: string]: boolean } = {};
   seen[String(to || '').trim().toLowerCase()] = true;

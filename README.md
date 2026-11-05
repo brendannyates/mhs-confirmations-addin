@@ -40,7 +40,7 @@ This repo holds code only. It contains no patient data and no link to the workbo
 
 ### Step 4: Settings
 1. On `Confirm Settings`, Practice Leaders change column C to **Yes** for each clinic that should get emails. Nothing sends while a clinic is "No".
-2. Optional: put CC addresses in column D for a clinic (for example a Practice Leader). Separate several with `;`. Only @mymhs.com and @mindfulhealthsolutions.com addresses are copied, because the email carries MRNs; anything else is left out and named in the warnings email. CC only goes out when that clinic is opted in.
+2. Optional: put CC addresses in column D for a clinic (for example a Practice Leader). Separate several with `;`. Only @mymhs.com, @mindfulhealthsolutions.com and @meetradial.com addresses are copied, because the email carries MRNs; anything else is left out and named in the warnings email. CC only goes out when that clinic is opted in.
 3. Optional: list holidays in column E, one per row, as YYYY-MM-DD. They're skipped when counting business days.
 
 ### Step 5: Add the Office Script

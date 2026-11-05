@@ -60,7 +60,7 @@
         optIn[cname] = /^y/i.test(String(row[2] || ''));
         var email = String(row[1] || '').trim() || C.emailForClinic(cname);
         var cc = C.parseCc(row[3], email);
-        if (cc.dropped.length) ccWarnings.push('CC for "' + cname + '" left out ' + cc.dropped.join(', ') + ': only @mymhs.com or @mindfulhealthsolutions.com addresses are copied.');
+        if (cc.dropped.length) ccWarnings.push('CC for "' + cname + '" left out ' + cc.dropped.join(', ') + ': only @mymhs.com, @mindfulhealthsolutions.com or @meetradial.com addresses are copied.');
         if (email) clinics.push({ name: cname, email: email, cc: cc.cc });
       }
       var h = row[4];

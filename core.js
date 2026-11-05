@@ -64,7 +64,7 @@
   // Mirror of CC_DOMAIN / parseCc in office-scripts/ConfirmationsRun.ts. Keep the two in sync.
   // Several addresses may be separated by ; , or spaces. Only MHS addresses are kept: the email carries MRNs,
   // so a typo to an outside domain would be a disclosure. Duplicates and the clinic's own To address are dropped.
-  var CC_DOMAIN = /^[^@\s]+@(mymhs\.com|mindfulhealthsolutions\.com)$/i;
+  var CC_DOMAIN = /^[^@\s]+@(mymhs\.com|mindfulhealthsolutions\.com|meetradial\.com)$/i;
   function parseCc(raw, to) {
     var seen = {}, keep = [], dropped = [];
     seen[String(to || '').trim().toLowerCase()] = 1;

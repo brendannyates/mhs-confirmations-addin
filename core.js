@@ -54,6 +54,29 @@
     for (var j = 0; j < lists.length; j++) for (var i = 0; i < lists[j].length; i++) if (lists[j][i].name.toLowerCase() === String(name).toLowerCase()) return lists[j][i].email;
     return '';
   }
+  // CC comes only from Confirm Settings column D (no built-in default).
+  function ccForClinic(name) {
+    for (var i = 0; i < CLINICS.length; i++) if (CLINICS[i].name.toLowerCase() === String(name).toLowerCase()) return CLINICS[i].cc || '';
+    return '';
+  }
+
+  // ---------- CC (Confirm Settings column D) ----------
+  // Mirror of CC_DOMAIN / parseCc in office-scripts/ConfirmationsRun.ts. Keep the two in sync.
+  // Several addresses may be separated by ; , or spaces. Only MHS addresses are kept: the email carries MRNs,
+  // so a typo to an outside domain would be a disclosure. Duplicates and the clinic's own To address are dropped.
+  var CC_DOMAIN = /^[^@\s]+@(mymhs\.com|mindfulhealthsolutions\.com)$/i;
+  function parseCc(raw, to) {
+    var seen = {}, keep = [], dropped = [];
+    seen[String(to || '').trim().toLowerCase()] = 1;
+    String(raw == null ? '' : raw).split(/[;,\s]+/).forEach(function (a) {
+      a = a.trim();
+      if (!a) return;
+      if (!CC_DOMAIN.test(a)) { dropped.push(a); return; }
+      if (seen[a.toLowerCase()]) return;
+      seen[a.toLowerCase()] = 1; keep.push(a);
+    });
+    return { cc: keep.join(';'), dropped: dropped };
+  }
 
   // ---------- LASFIR: last 3 of last name + first 3 of first name. "Smith, John (Tom)" -> SMIJOH ----------
   // Mirror of letters / toLASFIR in office-scripts/ConfirmationsRun.ts.
@@ -249,11 +272,11 @@
     })).concat(['', SIGNATURE_TEXT]).join('\n');
 
     var range = res ? fmtDate(res.start) + (res.end !== res.start ? '-' + fmtDate(res.end) : '') : '';
-    return { to: emailForClinic(clinicName), subject: 'Appointment confirmations needed: ' + clinicName + (range ? ' (' + range + ')' : ''), html: html, text: text, count: items.length };
+    return { to: emailForClinic(clinicName), cc: ccForClinic(clinicName), subject: 'Appointment confirmations needed: ' + clinicName + (range ? ' (' + range + ')' : ''), html: html, text: text, count: items.length };
   }
 
   return {
-    get CLINICS() { return CLINICS; }, setClinics: setClinics, getClinics: getClinics, COL: COL, clinicForLocation: clinicForLocation, emailForClinic: emailForClinic,
+    get CLINICS() { return CLINICS; }, setClinics: setClinics, getClinics: getClinics, COL: COL, clinicForLocation: clinicForLocation, emailForClinic: emailForClinic, ccForClinic: ccForClinic, parseCc: parseCc,
     toLASFIR: toLASFIR, serialOfDate: serialOfDate, addBusinessDays: addBusinessDays, fmtDate: fmtDate, fmtTime: fmtTime,
     toSerial: toSerial, toTimeFrac: toTimeFrac, reportFreshness: reportFreshness,
     hasConfirmed: hasConfirmed, hasRescheduled: hasRescheduled, hasCancelled: hasCancelled,

@@ -3,7 +3,8 @@
 // Same rules as the add-in (core.js). Keep the two in sync.
 //
 // Input  todayIso: "yyyy-MM-dd" in Pacific time, supplied by the flow (Office Scripts run in UTC).
-// Output {status: "ok" | "error", message, emails: [{clinic,to,subject,html,count}], warnings: [], ownerHtml}
+// Output {status: "ok" | "error", message, emails: [{clinic,to,cc,subject,html,count}], warnings: [], ownerHtml}
+// cc: Confirm Settings column D, MHS addresses only, joined with ";" (Outlook's separator). "" when blank.
 // ownerHtml: one summary for the workbook owner (status, message, every warning). The flow emails it when warnings is not empty.
 
 type Cell = string | number | boolean;
@@ -60,6 +61,7 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
       sws = workbook.addWorksheet(SETTINGS_SHEET);
       const data: string[][] = [['ClinicName', 'ClinicEmail', 'Opt In (Yes/No)']].concat(CLINICS.map((c) => [c[0], c[1], 'No']));
       sws.getRange('A1:C' + data.length).setValues(data);
+      sws.getRange('D1').setValue('CC (optional, MHS addresses, separate with ;)');
       sws.getRange('E1').setValue('Holidays (YYYY-MM-DD, optional)');
       sws.getRange('G1').setValue('Workbook link for View (paste in G2 if not using the add-in)');
       sws.getRange('A1:G1').getFormat().getFont().setBold(true);
@@ -70,15 +72,17 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
     const sv: Cell[][] = sused ? sused.getValues() : [];
     const optIn: { [k: string]: boolean } = {};
     const holidays: number[] = [];
-    // Clinics come from Confirm Settings A (ClinicName) and B (ClinicEmail). Built-in list is only a fallback.
-    const clinics: string[][] = [];
+    // Clinics come from Confirm Settings A (ClinicName), B (ClinicEmail) and D (CC). Built-in list is only a fallback for B.
+    const clinics: string[][] = []; // [name, email, cc]
     for (let i = 1; i < sv.length; i++) {
       const cname = String(sv[i][0] || '').trim();
       if (cname) {
         optIn[cname] = /^y/i.test(String(sv[i][2] || ''));
         const fallback = CLINICS.filter((c) => c[0].toLowerCase() === cname.toLowerCase())[0];
         const cemail = String(sv[i][1] || '').trim() || (fallback ? fallback[1] : '');
-        if (cemail) clinics.push([cname, cemail]);
+        const cc = parseCc(sv[i][3], cemail);
+        if (cc.dropped.length) out.warnings.push('CC for "' + cname + '" left out ' + cc.dropped.join(', ') + ': only @mymhs.com or @mindfulhealthsolutions.com addresses are copied.');
+        if (cemail) clinics.push([cname, cemail, cc.cc]);
         else if (optIn[cname]) out.warnings.push('Clinic "' + cname + '" is opted in but has no ClinicEmail in column B, so it was NOT emailed.');
       }
       const h = sv[i][4];
@@ -155,7 +159,7 @@ function main(workbook: ExcelScript.Workbook, todayIso: string): string {
       const items = byClinic[c[0]];
       if (!items || !items.length || !optIn[c[0]]) continue;
       items.sort((a, b) => a.dateSerial - b.dateSerial || (a.timeFrac || 0) - (b.timeFrac || 0) || a.row - b.row);
-      out.emails.push(buildEmail(c[0], c[1], items, today, end, baseUrl));
+      out.emails.push(buildEmail(c[0], c[1], c[2], items, today, end, baseUrl));
     }
     out.message = out.emails.length + ' email(s) ready for ' + fmtDate(today) + ' to ' + fmtDate(end) + '.';
     return finish(out);
@@ -240,6 +244,25 @@ function toLASFIR(raw: Cell): { code: string; ok: boolean; reason: string } {
   return { code: (last.slice(0, 3) + first.slice(0, 3)).toUpperCase(), ok: true, reason: '' };
 }
 
+// Mirror of CC_DOMAIN / parseCc in core.js.
+// Several addresses may be separated by ; , or spaces. Only MHS addresses are kept: the email carries MRNs,
+// so a typo to an outside domain would be a disclosure. Duplicates and the clinic's own To address are dropped.
+const CC_DOMAIN = /^[^@\s]+@(mymhs\.com|mindfulhealthsolutions\.com)$/i;
+function parseCc(raw: Cell, to: string): { cc: string; dropped: string[] } {
+  const seen: { [k: string]: boolean } = {};
+  seen[String(to || '').trim().toLowerCase()] = true;
+  const keep: string[] = [], dropped: string[] = [];
+  const parts = String(raw == null ? '' : raw).split(/[;,\s]+/);
+  for (let p = 0; p < parts.length; p++) {
+    const a = parts[p].trim();
+    if (!a) continue;
+    if (!CC_DOMAIN.test(a)) { dropped.push(a); continue; }
+    if (seen[a.toLowerCase()]) continue;
+    seen[a.toLowerCase()] = true; keep.push(a);
+  }
+  return { cc: keep.join(';'), dropped: dropped };
+}
+
 // Mirror of hasConfirmed in core.js.
 function hasConfirmed(t: string): boolean {
   return /\bconf/i.test(t.replace(/\bnot\s+confirm/gi, ' ').replace(/\bunconfirm/gi, ' '));
@@ -266,7 +289,7 @@ function fmtTime(frac: number | null): string {
 function esc(s: Cell | null): string { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
 // Mirror of esc, SIGNATURE_HTML and buildEmail in core.js. Keep the two in sync.
-function buildEmail(clinic: string, to: string, items: Item[], start: number, end: number, baseUrl: string) {
+function buildEmail(clinic: string, to: string, cc: string, items: Item[], start: number, end: number, baseUrl: string) {
   const cols: [string, (i: Item) => Cell][] = [
     ['Md Rc', (i) => i.mdrc],
     ['Pat Name', (i) => i.lasfir || (i.nameIssue === 'blank' ? '(missing)' : '(check name)')],
@@ -292,5 +315,5 @@ function buildEmail(clinic: string, to: string, items: Item[], start: number, en
     '<p>Hello!</p><p>Please see the below patients requiring confirmation within the next 2 business days, including any outstanding for today if applicable.</p>' +
     '<p>Please standardly verify email address, date/time and appointment medium (in-person/tele), reminder to account for annual consent forms during check-in, directions to clinic, clinic extension, help email, enroll in portal, etc.</p>' +
     '<table style="border-collapse:collapse">' + head + body + '</table>' + SIGNATURE_HTML + '</div>';
-  return { clinic: clinic, to: to, subject: 'Appointment confirmations needed: ' + clinic + ' (' + fmtDate(start) + (end !== start ? '-' + fmtDate(end) : '') + ')', html: html, count: items.length };
+  return { clinic: clinic, to: to, cc: cc || '', subject: 'Appointment confirmations needed: ' + clinic + ' (' + fmtDate(start) + (end !== start ? '-' + fmtDate(end) : '') + ')', html: html, count: items.length };
 }

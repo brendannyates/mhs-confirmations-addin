@@ -36,12 +36,13 @@
     return /[?&]web=1/.test(u) ? u : u + (u.indexOf('?') < 0 ? '?' : '&') + 'web=1';
   }
 
-  // ---------- settings sheet (the "Confirmations Run" Office Script reads clinic names/emails, opt-ins, holidays and the G2 link from it) ----------
+  // ---------- settings sheet (the "Confirmations Run" Office Script reads clinic names/emails, opt-ins, CC (D), holidays and the G2 link from it) ----------
   // Mirror of the sheet-creation block in office-scripts/ConfirmationsRun.ts. Keep the two in sync.
   function createSettings(sheets) { // queues only; caller syncs
     var s = sheets.add(SETTINGS_SHEET);
     var data = [['ClinicName', 'ClinicEmail', 'Opt In (Yes/No)']].concat(C.CLINICS.map(function (c) { return [c.name, c.email, 'No']; }));
     s.getRange('A1:C' + data.length).values = data;
+    s.getRange('D1').values = [['CC (optional, MHS addresses, separate with ;)']];
     s.getRange('E1').values = [['Holidays (YYYY-MM-DD, optional)']];
     s.getRange('G1').values = [['Workbook link for View (paste in G2 if not using the add-in)']];
     s.getRange('C2:C' + data.length).dataValidation.rule = { list: { inCellDropDown: true, source: 'Yes,No' } };
@@ -52,18 +53,20 @@
 
   // values: Confirm Settings used range, assumed to start at A1 (A1 always holds "ClinicName").
   function readSettings(values, ws) {
-    var optIn = {}, holidays = [], clinics = [];
+    var optIn = {}, holidays = [], clinics = [], ccWarnings = [];
     values.slice(1).forEach(function (row) {
       var cname = String(row[0] || '').trim();
       if (cname) {
         optIn[cname] = /^y/i.test(String(row[2] || ''));
         var email = String(row[1] || '').trim() || C.emailForClinic(cname);
-        if (email) clinics.push({ name: cname, email: email });
+        var cc = C.parseCc(row[3], email);
+        if (cc.dropped.length) ccWarnings.push('CC for "' + cname + '" left out ' + cc.dropped.join(', ') + ': only @mymhs.com or @mindfulhealthsolutions.com addresses are copied.');
+        if (email) clinics.push({ name: cname, email: email, cc: cc.cc });
       }
       var h = row[4];
       if (h !== '' && h != null) { var s = typeof h === 'number' ? h : C.serialOfDate(new Date(String(h) + 'T00:00:00')); if (!isNaN(s)) holidays.push(s); }
     });
-    state.optIn = optIn; state.holidays = holidays;
+    state.optIn = optIn; state.holidays = holidays; state.ccWarnings = ccWarnings;
     if (clinics.length) C.setClinics(clinics); // Confirm Settings A:B drive matching and emails (mirrors the script)
     state.sheetUrl = values.length > 1 && values[1][6] ? String(values[1][6]).trim() : '';
     state.settingsWs = ws;
@@ -152,6 +155,7 @@
     });
     if (res.skipped.length) w.appendChild(el('div', { class: 'warn' }, 'Skipped ' + res.skipped.length + ' row(s) where Appt Dt is not a date: sheet row ' + res.skipped.map(function (s) { return s.row; }).join(', ') + '.'));
     if (res.badNames) w.appendChild(el('div', { class: 'warn' }, res.badNames + ' row(s) have a blank or non "Last, First" Pat Name, so no LASFIR code could be made.'));
+    (state.ccWarnings || []).forEach(function (t) { w.appendChild(el('div', { class: 'warn' }, t)); });
     if (!$('baseUrl').value.trim()) w.appendChild(el('div', { class: 'warn' }, 'No workbook link set, so emails will have no "View" links.'));
 
     var host = $('clinics'); host.textContent = '';
@@ -198,7 +202,7 @@
   function showPreview(name, items) {
     lastEmail = C.buildEmail(name, items, state.res, { baseUrl: $('baseUrl').value.trim(), includeNotes: $('optNotes').checked });
     $('pvTitle').textContent = name;
-    $('pvMeta').textContent = 'To: ' + lastEmail.to + '  ·  Subject: ' + lastEmail.subject;
+    $('pvMeta').textContent = 'To: ' + lastEmail.to + (lastEmail.cc ? '  ·  Cc: ' + lastEmail.cc.split(';').join('; ') : '') + '  ·  Subject: ' + lastEmail.subject;
     $('pvBody').innerHTML = lastEmail.html; // built by core.js with all cell text HTML-escaped
     $('preview').hidden = false;
     $('preview').scrollIntoView();

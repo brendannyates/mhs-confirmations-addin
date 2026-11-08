@@ -36,7 +36,7 @@
     load(true);
     // a pane left open overnight asks for a name again on the new day
     setInterval(function () { if (!boot.on && who.name && who.day !== dayIso()) { who.name = ''; renderGate(); } }, 60000);
-    // Dev Update notices: the bell docks in the header after Refresh (this add-in has no full-screen dialog to pass them to)
+    // Dev Update notices: the bell floats bottom right and can be dragged (this add-in has no full-screen dialog to pass them to)
     if (window.DevUpdates) DevUpdates.init({ app: 'conf', send: null });
   }
 

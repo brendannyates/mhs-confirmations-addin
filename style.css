@@ -26,7 +26,7 @@ td.ev{color:#555}
 .me b{font-weight:600}
 .linkbtn{background:none;color:var(--accent);padding:0;margin:0;text-decoration:underline;font:inherit;cursor:pointer}
 .du-bell{padding:0;margin-top:0}
-/* the toolbar sits flush right: Refresh, then the Dev Update bell docked in .du-slot */
+/* the toolbar sits flush right: Refresh. The Dev Update bell floats (dev-updates.js): bottom right, draggable */
 .tools{display:flex;align-items:center;gap:2px}
 .tools #refresh{margin-top:0}
 /* toolbar hover labels: what the press does (from the IVK Tracker) */

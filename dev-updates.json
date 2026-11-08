@@ -1,0 +1,13 @@
+{
+  "updates": [
+    {
+      "id": "2026-11-07-name-bell",
+      "date": "2026-11-07",
+      "bullets": [
+        "New: When you open Confirmations, it shows what it's reading from the workbook, then asks you to enter your name. Pick yours, or add it if you're new. This computer remembers you for the rest of the day.",
+        "New: Your name shows at the top. Use Switch user if someone else takes over.",
+        "New: This bell keeps a list of what's changed. Drag it anywhere and it stays put on this computer."
+      ]
+    }
+  ]
+}

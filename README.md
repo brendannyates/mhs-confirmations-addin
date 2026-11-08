@@ -10,6 +10,7 @@ This repo holds code only. It contains no patient data and no link to the workbo
 | File | Purpose |
 |---|---|
 | `index.html`, `app.js`, `core.js`, `style.css`, `assets/` | The task pane, served by GitHub Pages |
+| `dev-updates.js`, `dev-updates.css`, `dev-updates.json` | The Dev Update bell (shared with the other MHS add-ins). Add a notice to the top of `dev-updates.json` when something changes |
 | `manifest.xml` | What you upload to Excel to install the pane |
 | `office-scripts/ConfirmationsRun.ts` | The script the scheduled flow runs |
 
@@ -31,6 +32,7 @@ This repo holds code only. It contains no patient data and no link to the workbo
 3. Click **Confirmations** on the Home ribbon. The pane opens on the right.
 
 ### Step 3: First run of the pane
+1. The pane shows a loading screen while it reads the workbook, then asks "Enter your name". Names are kept in the workbook's document settings (no sheet); today's pick is remembered on this computer. **Switch user** at the top changes it.
 1. On first open the pane creates a `Confirm Settings` sheet: clinics and emails in A:C (Opt In all "No"), CC in D, holidays in E, workbook link in G.
 2. Check the top line: a date window (today to two business days out) and counts.
 3. Read every yellow warning. They flag unmapped locations, unreadable dates, bad names, a missing workbook link and an out-of-date report.

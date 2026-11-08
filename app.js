@@ -14,7 +14,7 @@
     return e;
   }
 
-  Office.onReady(function () {
+  function init() {
     state.fallbackUrl = Office.context.document.settings.get('baseUrl') || normalizeUrl(Office.context.document.url) || '';
     $('baseUrl').value = state.fallbackUrl;
     ['optToday', 'optCancelled', 'optNotes'].forEach(function (id) { $(id).addEventListener('change', render); });
@@ -25,11 +25,145 @@
       writeSheetUrl(v);
       render();
     });
-    $('refresh').addEventListener('click', load);
+    $('refresh').addEventListener('click', function () { load(); });
     $('pvClose').addEventListener('click', function () { $('preview').hidden = true; });
     $('pvCopy').addEventListener('click', copyEmail);
-    load();
-  });
+    $('gate').addEventListener('click', onGate);
+    $('gate').addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.id === 'whoNew') { e.preventDefault(); addUser(); } });
+    $('me').addEventListener('click', function (e) { if (e.target.closest('[data-act=switchUser]')) openPicker(); });
+    who.wb = workbookKey();
+    renderGate();
+    load(true);
+    // a pane left open overnight asks for a name again on the new day
+    setInterval(function () { if (!boot.on && who.name && who.day !== dayIso()) { who.name = ''; renderGate(); } }, 60000);
+    // Dev Update notices: the bell docks in the header after Refresh (this add-in has no full-screen dialog to pass them to)
+    if (window.DevUpdates) DevUpdates.init({ app: 'conf', send: null });
+  }
+
+  // ---------- the loading screen, then "Enter your name" (both as in the IVK Tracker) ----------
+  // The people who use this workbook are a list in its document settings (confUsers), so no sheet is added. This computer
+  // remembers, per workbook, who picked today and who has used it here before (localStorage "confWho:<workbook key>").
+  // The pick lasts the day; nobody is picked for you.
+  var USERS_KEY = 'confUsers', WBID_KEY = 'confWbId';
+  var BOOT = ['Connecting to the workbook', 'Reading Confirm Settings', 'Reading the List sheet', 'Finding who needs a confirmation'];
+  var boot = { on: true, i: 0, m: [] };
+  var who = { wb: '', users: [], name: '', day: '', picking: false };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var txt = function (s) { return String(s == null ? '' : s).trim(); };
+  var userKey = function (n) { return txt(n).toLowerCase(); };
+  var cleanName = function (s) { return txt(s).replace(/\s+/g, ' ').slice(0, 30).trim(); };
+  function dayIso() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* this session only */ } }
+  function wbKeyOf(s) {
+    var h = 0x811c9dc5, t = String(s || '').trim().toLowerCase().replace(/[?#].*$/, '');
+    for (var i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return t ? 'w' + h.toString(36) : '';
+  }
+  function workbookKey() {
+    var s = Office.context.document.settings, url = '';
+    try { url = Office.context.document.url || ''; } catch (e) { /* no document */ }
+    if (url) return wbKeyOf(url);
+    var id = s.get(WBID_KEY);
+    if (!id) { id = 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); s.set(WBID_KEY, id); s.saveAsync(); }
+    return wbKeyOf(id);
+  }
+  var whoKey = function () { return who.wb ? 'confWho:' + who.wb : ''; };
+  // what this computer remembers for one workbook: { day: "2026-11-07", name: "Sam", used: ["Sam", "Ana"] }
+  function whoRead() {
+    try { var o = JSON.parse(lsGet(whoKey()) || '{}'); return { day: txt(o.day), name: txt(o.name), used: Array.isArray(o.used) ? o.used.map(txt).filter(Boolean) : [] }; }
+    catch (e) { return { day: '', name: '', used: [] }; }
+  }
+  function readUsers() {
+    var v = Office.context.document.settings.get(USERS_KEY), seen = {}, out = [];
+    (Array.isArray(v) ? v : []).forEach(function (u) {
+      var name = cleanName(u && u.name), k = userKey(name);
+      if (name && !seen[k]) { seen[k] = true; out.push({ name: name, added: txt(u.added) }); }
+    });
+    return out;
+  }
+  function refreshDoc() { return new Promise(function (res) { try { Office.context.document.settings.refreshAsync(function () { res(); }); } catch (e) { res(); } }); }
+  function saveUsers(list) {
+    return new Promise(function (res, rej) {
+      var s = Office.context.document.settings; s.set(USERS_KEY, list);
+      s.saveAsync(function (r) { if (r.status === Office.AsyncResultStatus.Succeeded) res(); else rej(new Error('Couldn’t save your name to the workbook. Try again.')); });
+    });
+  }
+  // the people who have used this computer on this workbook first (most recent first), then everyone else A-Z
+  function pickOrder(users, here) {
+    var H = (here || []).map(userKey), rank = function (u) { var i = H.indexOf(userKey(u.name)); return i < 0 ? Infinity : i; };
+    return users.map(function (u) { return { name: u.name, here: rank(u) !== Infinity }; })
+      .sort(function (a, b) { return (rank(a) - rank(b)) || a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }); });
+  }
+  // today's pick on this computer, if any, and only while they're still on the workbook's list
+  function loadWho() {
+    var rec = whoRead(), n = rec.day === dayIso() ? rec.name : '';
+    var u = n && who.users.filter(function (x) { return userKey(x.name) === userKey(n); })[0];
+    who.name = u ? u.name : ''; who.day = who.name ? rec.day : '';
+  }
+  function setWho(name) {
+    var rec = whoRead(), day = dayIso();
+    rec = { day: day, name: name, used: [name].concat(rec.used.filter(function (n) { return userKey(n) !== userKey(name); })).slice(0, 20) };
+    if (whoKey()) lsSet(whoKey(), JSON.stringify(rec));
+    who.name = name; who.day = day; who.picking = false;
+  }
+
+  function bootStep(i, msg) { if (!boot.on) return; boot.m[i] = msg; boot.i = Math.max(boot.i, i + 1); renderGate(); }
+  function bootDone() {
+    if (!boot.on) return;
+    return refreshDoc().then(function () { who.users = readUsers(); loadWho(); boot.on = false; renderGate(); });
+  }
+  function bootHTML() {
+    return '<div class="boot" role="status" aria-live="polite"><div class="bootin"><div class="spinner" aria-hidden="true"></div><h1>Confirmations</h1><p class="muted">Reading the workbook.</p>' +
+      '<ol class="steps">' + BOOT.map(function (t, i) {
+        return '<li class="step ' + (boot.i > i ? 'done' : boot.i === i ? 'now' : 'next') + '"><span class="k">' + (boot.i > i ? '✓' : '') + '</span><span><span class="t">' + t + '</span><span class="m">' + esc(boot.m[i] || '') + '</span></span></li>';
+      }).join('') + '</ol></div></div>';
+  }
+  // "Enter your name": this workbook's list only, the people who've used this computer here first, nobody picked
+  function pickHTML() {
+    var L = pickOrder(who.users, whoRead().used), cancel = who.picking && who.name;
+    return '<div class="boot who"><div class="bootin"><div class="whohero"><h1>Enter your name</h1>' +
+      '<p class="muted">' + (L.length ? 'Pick yours below, or add it if you’re new.' : 'Nobody has added their name to this workbook yet. Add yours to start.') + '</p></div>' +
+      (L.length ? '<div class="wholist" role="group" aria-label="People on this workbook">' + L.map(function (u) {
+        return '<button type="button" class="whob" data-act="pickUser" data-v="' + esc(u.name) + '">' + esc(u.name) + (u.here ? '<span class="tag">On this computer</span>' : '') + '</button>';
+      }).join('') + '</div>' : '') +
+      '<details class="whonew"' + (L.length ? '' : ' open') + '><summary>' + (L.length ? 'I’m not on the list' : 'Add your name') + '</summary>' +
+        '<label class="fld">Your name<input id="whoNew" autocomplete="off" spellcheck="false" maxlength="30"><span class="hint">Usually your first name. Add a last initial if someone here shares it.</span></label>' +
+        '<div class="whoact"><button type="button" data-act="addUser">Add me and start</button></div></details>' +
+      (cancel ? '<div class="whoact"><button type="button" class="ghost" data-act="pickCancel">Stay as ' + esc(who.name) + '</button></div>' : '') + '</div></div>';
+  }
+  function renderGate() {
+    var g = $('gate'), me = $('me');
+    if (boot.on) g.innerHTML = bootHTML();
+    else if (!who.name || who.picking) {
+      var open = g.querySelector('.whonew') && g.querySelector('.whonew').open, typed = $('whoNew') ? $('whoNew').value : '';
+      g.innerHTML = pickHTML();
+      if (open) g.querySelector('.whonew').open = true;
+      if (typed) $('whoNew').value = typed;
+      if ($('whoNew') && (!who.users.length || open)) $('whoNew').focus();
+    } else g.innerHTML = '';
+    me.hidden = !who.name;
+    me.innerHTML = who.name ? '<b>' + esc(who.name) + '</b> · <button type="button" class="linkbtn" data-act="switchUser">Switch user</button>' : '';
+  }
+  function openPicker() { refreshDoc().then(function () { who.users = readUsers(); who.picking = true; renderGate(); }); }
+  function pickUser(name) { setWho(name); renderGate(); }
+  function addUser() {
+    var n = cleanName($('whoNew') && $('whoNew').value);
+    if (!n) { if ($('whoNew')) $('whoNew').focus(); return; }
+    refreshDoc().then(function () {
+      var list = readUsers(), had = list.filter(function (u) { return userKey(u.name) === userKey(n); })[0];
+      if (had) return had.name;
+      return saveUsers(list.concat([{ name: n, added: dayIso() }])).then(function () { return n; });
+    }).then(function (name) { who.users = readUsers(); pickUser(name); }, function (e) {
+      var f = $('gate').querySelector('.hint'); if (f) f.textContent = (e && e.message) || 'Couldn’t save your name. Try again.';
+    });
+  }
+  function onGate(e) {
+    var b = e.target.closest('[data-act]'); if (!b) return;
+    if (b.dataset.act === 'pickUser') pickUser(b.dataset.v);
+    else if (b.dataset.act === 'addUser') addUser();
+    else if (b.dataset.act === 'pickCancel') { who.picking = false; renderGate(); }
+  }
 
   function normalizeUrl(u) {
     if (!u || !/^https?:/i.test(u)) return '';
@@ -101,19 +235,24 @@
   }
 
   // ---------- load ----------
-  function load() {
+  // first = the read on open: its steps tick on the loading screen, which then hands over to "Enter your name"
+  function load(first) {
     $('window').textContent = 'Loading…';
+    var step = first ? bootStep : function () {};
     Excel.run(function (context) {
       var sheets = context.workbook.worksheets;
       var sws = sheets.getItemOrNullObject(SETTINGS_SHEET);
       var lws = sheets.getItemOrNullObject(LIST_SHEET);
       return context.sync().then(function () {
+        step(0, 'Connected');
         if (sws.isNullObject) sws = createSettings(sheets);
         var sused = sws.getUsedRange(true); sused.load('values');
         var lused = null;
         if (!lws.isNullObject) { lused = lws.getUsedRangeOrNullObject(true); lused.load('values,rowIndex,columnIndex,rowCount,columnCount'); }
         return context.sync().then(function () {
           readSettings(sused.values, sws);
+          var nc = Object.keys(state.optIn).length;
+          step(1, nc + (nc === 1 ? ' clinic' : ' clinics'));
           if (!lused) throw new Error('No sheet named "' + LIST_SHEET + '" in this workbook.');
           return listValues(lused);
         });
@@ -128,12 +267,16 @@
       else if ($('baseUrl').value.trim()) writeSheetUrl($('baseUrl').value.trim());
       state.rows = values.slice(hdr + 1);
       state.firstRow = hdr + 2; // sheet row number of first data row
+      step(2, state.rows.length + (state.rows.length === 1 ? ' row' : ' rows'));
       render();
+      step(3, state.res.stats.flagged + ' to confirm');
+      if (first) return bootDone();
     }).catch(function (e) {
       $('window').textContent = '';
       $('clinics').textContent = '';
       $('warnings').textContent = '';
       $('warnings').appendChild(el('div', { class: 'warn' }, 'Could not load: ' + (e && e.message || e)));
+      if (first) bootDone();   // the warning shows in the pane once a name is picked
     });
   }
 
@@ -223,4 +366,6 @@
       try { document.execCommand('copy'); done(); } catch (e) { /* user can copy manually */ }
     }
   }
+
+  Office.onReady(init);
 })();

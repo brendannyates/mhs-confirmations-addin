@@ -20,3 +20,47 @@ td.ev{color:#555}
 #preview{margin-top:14px;border-top:2px solid #1f4e79;padding-top:8px}
 #preview .bar{display:flex;justify-content:space-between;align-items:center}
 #pvBody{overflow-x:auto;margin-top:8px}
+/* colours for the loading screen, the name screen and the Dev Update bell (dev-updates.css reads these) */
+:root{--bg:#fff;--surface:#fff;--surface-2:#e5e8eb;--surface-3:#f4f6f8;--ink:#222;--muted:#666;--faint:#9aa3ab;--accent:#1f4e79;--accent-soft:#e3ecf5;--font:Segoe UI,Calibri,Arial,sans-serif}
+.me{font-size:12px;margin:2px 0}
+.me b{font-weight:600}
+.linkbtn{background:none;color:var(--accent);padding:0;margin:0;text-decoration:underline;font:inherit;cursor:pointer}
+.du-bell{padding:0;margin-top:0}
+/* the toolbar sits flush right: Refresh, then the Dev Update bell docked in .du-slot */
+.tools{display:flex;align-items:center;gap:2px}
+.tools #refresh{margin-top:0}
+/* toolbar hover labels: what the press does (from the IVK Tracker) */
+.tools .ibtn{position:relative}
+.tools .ibtn[data-tip]:hover::after,.tools .ibtn[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:5px 9px;border-radius:8px;background:var(--ink);color:var(--surface);font-size:12px;font-weight:500;line-height:1.2;pointer-events:none;z-index:60}
+/* the loading screen on open (from the IVK Tracker) */
+.boot{position:fixed;inset:0;z-index:50;display:flex;overflow:auto;background:var(--bg);padding:24px;box-sizing:border-box}
+.bootin{width:min(380px,100%);margin:auto;display:flex;flex-direction:column;align-items:center;text-align:center}
+.bootin h1{margin:22px 0 0;font-size:24px}.bootin>p{margin:6px 0 0;font-size:14px}
+.spinner{width:44px;height:44px;border-radius:50%;border:4px solid var(--surface-2);border-top-color:var(--accent);animation:confspin .9s linear infinite;box-sizing:border-box}
+@keyframes confspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation-duration:2.4s}}
+.steps{list-style:none;width:100%;margin:24px 0 0;padding:0;text-align:left}
+.step{display:grid;grid-template-columns:22px 1fr;gap:12px;align-items:start;padding:8px 0;border-top:1px solid var(--surface-2)}
+.step .k{width:20px;height:20px;border-radius:50%;border:2px solid var(--surface-2);margin-top:1px;display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--surface);box-sizing:border-box}
+.step.done .k{background:var(--accent);border-color:var(--accent)}
+.step.now .k{border-color:var(--ink)}
+.step .t{font-size:14px}
+.step .m{display:block;min-height:17px;font-size:12.5px;color:var(--muted);margin-top:1px}
+.step.next .t{color:var(--faint)}
+/* "Enter your name": the hero, then the names, and a scroll (not a clipped centre) when the list is long */
+.boot.who .bootin{width:min(420px,100%)}
+.whohero{display:flex;flex-direction:column;align-items:center}
+.whohero h1{margin:0}
+.whohero p{margin:6px 0 0;font-size:14px}
+.wholist{display:flex;flex-direction:column;gap:8px;width:100%;margin-top:22px}
+.wholist .whob{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:48px;margin:0;padding:0 14px;border-radius:10px;background:var(--surface);color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--surface-2);font-size:16px;font-weight:600;text-align:left}
+.wholist .whob:hover{background:var(--accent-soft)}
+.whob .tag{font-size:12px;font-weight:400;padding:3px 9px;border-radius:10px;background:var(--surface-2);color:var(--muted)}
+.whonew{width:100%;margin-top:14px;text-align:left}
+.whonew>summary{display:flex;align-items:center;min-height:44px;font-weight:600;color:var(--accent)}
+.fld{display:block;margin-top:8px;font-size:13px;color:var(--muted)}
+.fld input{display:block;width:100%;box-sizing:border-box;margin-top:4px;min-height:40px;padding:8px 12px;border-radius:10px;border:1.5px solid var(--surface-2);font:inherit;font-size:14px;color:var(--ink)}
+.fld .hint{display:block;margin-top:3px;font-size:12px}
+.whoact{display:flex;justify-content:flex-start;gap:6px;margin-top:10px}
+.whoact button{min-height:40px;padding:0 16px;border-radius:10px;margin:0;font-weight:600}
+.whoact button.ghost{color:var(--muted)}

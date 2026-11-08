@@ -1,0 +1,43 @@
+/* shell.css (with shell.js): toolbar, light / dark toggle and the full-screen frame, shared by Confirmations, Kinnect Relay and
+   Call Pool PTO (keep byte-identical). Sizes and behaviour from the IVK Tracker; colours from each add-in's own tokens. */
+/* toolbar: flush right, refresh, full screen, light / dark */
+.tools{display:flex;align-items:center;gap:4px;flex:none;margin-left:auto}
+.tools .ibtn{position:relative;display:grid;place-items:center;width:40px;height:40px;margin:0;padding:0;border:0;border-radius:12px;background:none;color:var(--muted);cursor:pointer;transition:background .2s,color .2s}
+.tools .ibtn:hover{background:var(--surface-3);color:var(--ink)}
+.tools .ibtn:disabled{cursor:default;opacity:.6}
+.tools .ibtn svg{display:block;width:18px;height:18px}
+.tools .ibtn.spin svg{animation:shspin .9s linear infinite}
+@keyframes shspin{to{transform:rotate(360deg)}}
+/* hover label: what a press does */
+.tools .ibtn[data-tip]:hover::after,.tools .ibtn[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:5px 9px;border-radius:8px;background:var(--ink);color:var(--surface);font-size:12px;font-weight:500;line-height:1.2;pointer-events:none;z-index:60}
+/* light / dark: "sun / moon", whole icons the size of the others. The right one is the one to press, the left is where you
+   are; they swap places on a change. */
+.tools .ibtn.theme{width:auto;padding:0 8px;display:flex;align-items:center;gap:3px}
+.tools .ibtn.theme svg{width:18px;height:18px}
+.tools .ibtn.theme .tsl{font-size:14px;color:var(--faint,var(--muted));line-height:1}
+.tools .ibtn.theme .tcur{opacity:.45}
+.tools .ibtn.theme .tgo{color:var(--ink)}
+.tools .ibtn.theme .tcur,.tools .ibtn.theme .tgo{display:grid;place-items:center}
+.tools .ibtn.theme.swap .tcur{animation:shswapL .38s cubic-bezier(.3,.7,.3,1)}
+.tools .ibtn.theme.swap .tgo{animation:shswapR .38s cubic-bezier(.3,.7,.3,1)}
+@keyframes shswapL{from{transform:translateX(12px) rotate(-90deg);opacity:1}}
+@keyframes shswapR{from{transform:translateX(-12px) rotate(90deg);opacity:.6}}
+@media (prefers-reduced-motion:reduce){.tools .ibtn.spin svg,.tools .ibtn.theme.swap .tcur,.tools .ibtn.theme.swap .tgo{animation:none}}
+
+/* full screen (body.fs): a rail with the add-in's name, the bell's home right of it, the app's items and Exit full screen */
+.fsframe{display:grid;grid-template-columns:232px minmax(0,1fr);height:100vh;overflow:hidden;background:var(--bg)}
+.fsframe>.page{position:relative;overflow:auto;min-width:0;padding:28px 32px 40px}
+.rail{display:flex;flex-direction:column;gap:2px;padding:31px 14px 20px;background:var(--surface);box-shadow:var(--shadow,0 0 0 1px var(--surface-2));z-index:1;overflow:auto;font-family:var(--font)}
+.rail .brand{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px 22px;font-weight:600;font-size:15px;line-height:1.2;color:var(--ink)}
+.rail .brand small{display:block;font-weight:400;font-size:12.5px;color:var(--muted)}
+.rail .brand .du-home{margin:-12px -6px -12px 0}
+.rail .item{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-height:44px;margin:0;padding:10px 12px;border:0;border-radius:10px;background:none;color:var(--ink);font:inherit;font-size:15px;text-align:left;cursor:pointer;transition:background .2s}
+.rail .item:hover{background:var(--surface-3)}
+.rail .item[aria-current="page"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.rail .item.fs{justify-content:flex-start}
+.rail .item.fs svg{flex:none;width:18px;height:18px;color:var(--muted)}
+.rail .item small{display:block;font-size:12.5px;font-weight:400;color:var(--muted)}
+.rail .spacer{flex:1}
+.rail .conn{display:flex;align-items:center;gap:8px;padding:10px 12px 0;font-size:12.5px;color:var(--muted)}
+.rail .cdot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+.rail .conn.busy .cdot{background:var(--warn,var(--muted))}

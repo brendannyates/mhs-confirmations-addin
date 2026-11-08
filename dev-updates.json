@@ -1,6 +1,15 @@
 {
   "updates": [
     {
+      "id": "2026-11-08-bell-home",
+      "date": "2026-11-08",
+      "bullets": [
+        "New: Full screen. Press the corners button at the top right. The list and the email preview sit side by side, and View goes to the row and closes full screen.",
+        "New: Light and dark mode. Press the sun / moon at the top right; this computer remembers your choice. The email preview keeps the email's own colours.",
+        "Changed: The Dev updates bell is only in full screen, right of the name at the top left. A red dot means something new; click the bell to read it. Nothing pops up on its own."
+      ]
+    },
+    {
       "id": "2026-11-08-bell-float",
       "date": "2026-11-08",
       "bullets": [

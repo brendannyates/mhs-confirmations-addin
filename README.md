@@ -10,6 +10,7 @@ This repo holds code only. It contains no patient data and no link to the workbo
 | File | Purpose |
 |---|---|
 | `index.html`, `app.js`, `core.js`, `style.css`, `assets/` | The task pane, served by GitHub Pages |
+| `shell.js`, `shell.css` | The toolbar (refresh, full screen, light/dark), light/dark mode and full screen. Same files in Kinnect Relay and Call Pool PTO; keep them identical |
 | `dev-updates.js`, `dev-updates.css`, `dev-updates.json` | The Dev Update bell (shared with the other MHS add-ins). Add a notice to the top of `dev-updates.json` when something changes |
 | `manifest.xml` | What you upload to Excel to install the pane |
 | `office-scripts/ConfirmationsRun.ts` | The script the scheduled flow runs |
@@ -33,6 +34,8 @@ This repo holds code only. It contains no patient data and no link to the workbo
 
 ### Step 3: First run of the pane
 1. The pane shows a loading screen while it reads the workbook, then asks "Enter your name". Names are kept in the workbook's document settings (no sheet); today's pick is remembered on this computer. **Switch user** at the top changes it.
+   - Top right: refresh (reads the workbook again), full screen and light/dark. Light/dark is remembered on this computer.
+   - Full screen floats over the Excel page (an in-page dialog, not a new window). It reads and saves through the pane, so keep the pane open. The list and the email preview sit side by side; **View** selects the row and closes full screen. The Dev Update bell lives there only, right of the name at the top left: a red dot means something new, and a click opens it.
 1. On first open the pane creates a `Confirm Settings` sheet: clinics and emails in A:C (Opt In all "No"), CC in D, holidays in E, workbook link in G.
 2. Check the top line: a date window (today to two business days out) and counts.
 3. Read every yellow warning. They flag unmapped locations, unreadable dates, bad names, a missing workbook link and an out-of-date report.

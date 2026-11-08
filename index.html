@@ -1,20 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-app="conf">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Confirmations</title>
 <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-<link rel="stylesheet" href="style.css?v=3">
-<link rel="stylesheet" href="dev-updates.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="shell.css?v=4">
+<link rel="stylesheet" href="dev-updates.css?v=4">
 </head>
 <body>
+<div id="frame">
+<div id="rail"></div>
+<div class="page">
 <header>
-  <div class="titlebar"><h1>Confirmations needed</h1><div class="tools"><button id="refresh" class="ibtn" data-tip="Refresh" aria-label="Refresh">&#8635;</button></div></div>
+  <div class="titlebar"><h1>Confirmations needed</h1><div id="tools"></div></div>
   <div id="me" class="me" hidden></div>
   <div id="window" class="muted">Loading…</div>
 </header>
 
+<div class="cols">
+<div class="lcol">
 <section class="opts">
   <label><input type="checkbox" id="optToday" checked> Include today</label>
   <label><input type="checkbox" id="optCancelled" checked> Skip cancelled</label>
@@ -26,6 +32,7 @@
 
 <div id="warnings"></div>
 <main id="clinics"></main>
+</div>
 
 <div id="preview" hidden>
   <div class="bar">
@@ -38,11 +45,16 @@
   <div class="muted" id="pvMeta"></div>
   <div id="pvBody"></div>
 </div>
+</div>
+</div>
+</div>
 
 <div id="gate"><div class="boot" role="status" aria-live="polite"><div class="bootin"><div class="spinner" aria-hidden="true"></div><h1>Confirmations</h1><p class="muted">Loading…</p></div></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
-<script src="core.js?v=3"></script>
-<script src="dev-updates.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<script src="core.js?v=4"></script>
+<script src="dev-updates.js?v=4"></script>
+<script src="shell.js?v=4"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

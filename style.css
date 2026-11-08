@@ -26,6 +26,12 @@ td.ev{color:#555}
 .me b{font-weight:600}
 .linkbtn{background:none;color:var(--accent);padding:0;margin:0;text-decoration:underline;font:inherit;cursor:pointer}
 .du-bell{padding:0;margin-top:0}
+/* the toolbar sits flush right: Refresh, then the Dev Update bell docked in .du-slot */
+.tools{display:flex;align-items:center;gap:2px}
+.tools #refresh{margin-top:0}
+/* toolbar hover labels: what the press does (from the IVK Tracker) */
+.tools .ibtn{position:relative}
+.tools .ibtn[data-tip]:hover::after,.tools .ibtn[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:5px 9px;border-radius:8px;background:var(--ink);color:var(--surface);font-size:12px;font-weight:500;line-height:1.2;pointer-events:none;z-index:60}
 /* the loading screen on open (from the IVK Tracker) */
 .boot{position:fixed;inset:0;z-index:50;display:flex;overflow:auto;background:var(--bg);padding:24px;box-sizing:border-box}
 .bootin{width:min(380px,100%);margin:auto;display:flex;flex-direction:column;align-items:center;text-align:center}

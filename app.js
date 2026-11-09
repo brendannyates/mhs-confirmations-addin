@@ -14,31 +14,73 @@
     return e;
   }
 
+  // Full screen is an Office dialog floating over the Excel page (shell.js). It never touches the workbook: it draws from a copy
+  // of what the pane read (snap) and asks the pane for every write (Shell.call). The dialog has no Office.context.document.
+  var FULL = !!(window.Shell && Shell.FULL);
   function init() {
-    state.fallbackUrl = Office.context.document.settings.get('baseUrl') || normalizeUrl(Office.context.document.url) || '';
-    $('baseUrl').value = state.fallbackUrl;
     ['optToday', 'optCancelled', 'optNotes'].forEach(function (id) { $(id).addEventListener('change', render); });
     $('baseUrl').addEventListener('change', function () {
       var v = $('baseUrl').value.trim();
-      Office.context.document.settings.set('baseUrl', v);
-      Office.context.document.settings.saveAsync();
-      writeSheetUrl(v);
-      render();
+      if (FULL) { Shell.call('setBaseUrl', v).catch(function (e) { toast('Couldn’t save the link: ' + (e.message || e)); }); render(); return; }
+      setBaseUrl(v);
     });
-    $('refresh').addEventListener('click', function () { load(); });
     $('pvClose').addEventListener('click', function () { $('preview').hidden = true; });
     $('pvCopy').addEventListener('click', copyEmail);
     $('gate').addEventListener('click', onGate);
     $('gate').addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.id === 'whoNew') { e.preventDefault(); addUser(); } });
     $('me').addEventListener('click', function (e) { if (e.target.closest('[data-act=switchUser]')) openPicker(); });
+    Shell.init({ bell: 'conf', render: drawShell, refresh: FULL ? null : function () { return load(); }, toast: toast,
+      calls: PANE, snap: snap, receive: fromPane });
+    if (FULL) { BOOT = ['Getting the workbook from the task pane']; $('frame').className = 'fsframe'; drawShell(); renderGate(); return; }
+    state.fallbackUrl = Office.context.document.settings.get('baseUrl') || normalizeUrl(Office.context.document.url) || '';
+    $('baseUrl').value = state.fallbackUrl;
     who.wb = workbookKey();
+    drawShell();
     renderGate();
     load(true);
     // a pane left open overnight asks for a name again on the new day
     setInterval(function () { if (!boot.on && who.name && who.day !== dayIso()) { who.name = ''; renderGate(); } }, 60000);
-    // Dev Update notices: the bell floats bottom right and can be dragged (this add-in has no full-screen dialog to pass them to)
-    if (window.DevUpdates) DevUpdates.init({ app: 'conf', send: null });
   }
+  function setBaseUrl(v) {
+    Office.context.document.settings.set('baseUrl', v);
+    Office.context.document.settings.saveAsync();
+    $('baseUrl').value = v;
+    writeSheetUrl(v);
+    render(); Shell.update();
+  }
+
+  // ---------- the toolbar, and full screen's rail ----------
+  // Refresh (read the workbook again), full screen and light / dark, flush right (shell.js). Full screen adds the rail: the
+  // add-in's name with the Dev Update bell's home right of it, then Exit full screen.
+  function drawShell() {
+    $('tools').innerHTML = Shell.tools(state.loading);
+    if (FULL) $('rail').innerHTML = Shell.rail({ name: 'Confirmations', sub: 'Outreach to clinics' });
+  }
+  var toastT = null;
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('on'); }, 4000); }
+  // what full screen draws from: the List rows, the settings it read and who's at this computer
+  function snap() {
+    return { rows: state.rows || null, firstRow: state.firstRow, headerBad: state.headerBad || [], optIn: state.optIn, holidays: state.holidays, ccWarnings: state.ccWarnings || [],
+      clinics: C.getClinics(), baseUrl: $('baseUrl').value.trim(), err: state.err || '', users: who.users, name: who.name, wb: who.wb };
+  }
+  function fromPane(m) {
+    if (m.k !== 'snap') return;
+    state.rows = m.rows; state.firstRow = m.firstRow; state.headerBad = m.headerBad; state.optIn = m.optIn || {}; state.holidays = m.holidays || []; state.ccWarnings = m.ccWarnings;
+    C.setClinics(m.clinics); state.err = m.err;
+    if (document.activeElement !== $('baseUrl')) $('baseUrl').value = m.baseUrl || '';
+    who.wb = m.wb; who.users = m.users || []; if (!who.picking) { who.name = m.name || ''; who.day = dayIso(); }
+    boot.on = false;
+    if (state.err) showLoadError(state.err); else render();
+    renderGate();
+  }
+  // what full screen may ask the pane to do
+  var PANE = {
+    setBaseUrl: function (v) { setBaseUrl(String(v || '').trim()); return true; },
+    setWho: function (name) { setWho(name); renderGate(); Shell.update(); return true; },
+    addUser: function (n) { return saveName(n).then(function (name) { pickUser(name); return { name: name, users: who.users }; }); },
+    users: function () { return refreshDoc().then(function () { who.users = readUsers(); return who.users; }); },
+    goTo: function (row) { return goTo(row); }
+  };
 
   // ---------- the loading screen, then "Enter your name" (both as in the IVK Tracker) ----------
   // The people who use this workbook are a list in its document settings (confUsers), so no sheet is added. This computer
@@ -82,7 +124,7 @@
     });
     return out;
   }
-  function refreshDoc() { return new Promise(function (res) { try { Office.context.document.settings.refreshAsync(function () { res(); }); } catch (e) { res(); } }); }
+  function refreshDoc() { return new Promise(function (res) { if (FULL) return res(); try { Office.context.document.settings.refreshAsync(function () { res(); }); } catch (e) { res(); } }); }
   function saveUsers(list) {
     return new Promise(function (res, rej) {
       var s = Office.context.document.settings; s.set(USERS_KEY, list);
@@ -145,16 +187,27 @@
     me.hidden = !who.name;
     me.innerHTML = who.name ? '<b>' + esc(who.name) + '</b> · <button type="button" class="linkbtn" data-act="switchUser">Switch user</button>' : '';
   }
-  function openPicker() { refreshDoc().then(function () { who.users = readUsers(); who.picking = true; renderGate(); }); }
-  function pickUser(name) { setWho(name); renderGate(); }
-  function addUser() {
-    var n = cleanName($('whoNew') && $('whoNew').value);
-    if (!n) { if ($('whoNew')) $('whoNew').focus(); return; }
-    refreshDoc().then(function () {
+  // full screen asks the pane: the pane keeps the list and today's pick (full screen takes the pane's pick)
+  function openPicker() {
+    var users = FULL ? Shell.call('users') : refreshDoc().then(function () { return readUsers(); });
+    users.then(function (u) { who.users = u; who.picking = true; renderGate(); }, function (e) { toast(String((e && e.message) || e)); });
+  }
+  function pickUser(name) {
+    if (FULL) { Shell.call('setWho', name).then(function () { who.name = name; who.day = dayIso(); who.picking = false; renderGate(); }, function (e) { toast(String((e && e.message) || e)); }); return; }
+    setWho(name); renderGate(); Shell.update();
+  }
+  function saveName(n) {
+    return refreshDoc().then(function () {
       var list = readUsers(), had = list.filter(function (u) { return userKey(u.name) === userKey(n); })[0];
       if (had) return had.name;
       return saveUsers(list.concat([{ name: n, added: dayIso() }])).then(function () { return n; });
-    }).then(function (name) { who.users = readUsers(); pickUser(name); }, function (e) {
+    }).then(function (name) { who.users = readUsers(); return name; });
+  }
+  function addUser() {
+    var n = cleanName($('whoNew') && $('whoNew').value);
+    if (!n) { if ($('whoNew')) $('whoNew').focus(); return; }
+    var done = function (name) { if (!FULL) return pickUser(name); who.name = name; who.day = dayIso(); who.picking = false; renderGate(); };
+    (FULL ? Shell.call('addUser', n).then(function (r) { who.users = r.users; return r.name; }) : saveName(n)).then(done, function (e) {
       var f = $('gate').querySelector('.hint'); if (f) f.textContent = (e && e.message) || 'Couldn’t save your name. Try again.';
     });
   }
@@ -239,7 +292,8 @@
   function load(first) {
     $('window').textContent = 'Loading…';
     var step = first ? bootStep : function () {};
-    Excel.run(function (context) {
+    state.loading = true; drawShell();
+    return Excel.run(function (context) {
       var sheets = context.workbook.worksheets;
       var sws = sheets.getItemOrNullObject(SETTINGS_SHEET);
       var lws = sheets.getItemOrNullObject(LIST_SHEET);
@@ -267,17 +321,22 @@
       else if ($('baseUrl').value.trim()) writeSheetUrl($('baseUrl').value.trim());
       state.rows = values.slice(hdr + 1);
       state.firstRow = hdr + 2; // sheet row number of first data row
+      state.err = '';
       step(2, state.rows.length + (state.rows.length === 1 ? ' row' : ' rows'));
       render();
       step(3, state.res.stats.flagged + ' to confirm');
       if (first) return bootDone();
     }).catch(function (e) {
-      $('window').textContent = '';
-      $('clinics').textContent = '';
-      $('warnings').textContent = '';
-      $('warnings').appendChild(el('div', { class: 'warn' }, 'Could not load: ' + (e && e.message || e)));
-      if (first) bootDone();   // the warning shows in the pane once a name is picked
-    });
+      state.err = String(e && e.message || e);
+      showLoadError(state.err);
+      if (first) return bootDone();   // the warning shows in the pane once a name is picked
+    }).then(function () { state.loading = false; drawShell(); Shell.update(); });
+  }
+  function showLoadError(msg) {
+    $('window').textContent = '';
+    $('clinics').textContent = '';
+    $('warnings').textContent = '';
+    $('warnings').appendChild(el('div', { class: 'warn' }, 'Could not load: ' + msg));
   }
 
   // ---------- render ----------
@@ -332,8 +391,10 @@
     return card;
   }
 
+  // in full screen, View selects the row through the pane and closes full screen, so the row is in sight
   function goTo(row) {
-    Excel.run(function (context) {
+    if (FULL) return Shell.call('goTo', row).then(function () { Shell.close(); }, function (e) { toast('Couldn’t go to the row: ' + (e.message || e)); });
+    return Excel.run(function (context) {
       var ws = context.workbook.worksheets.getItem(LIST_SHEET);
       ws.activate(); ws.getRange('A' + row).select();
       return context.sync();
